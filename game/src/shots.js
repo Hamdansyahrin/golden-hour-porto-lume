@@ -146,16 +146,29 @@ function stageRoadblock(G, step) {
 // ÁGUIA-1 up ahead with its spotlight cone raking down onto the Vela, the roadblock
 // waiting at the far end of the boulevard, and the 21 m Farol closing the frame
 // over the rooftops. HUD shows 5 stars + ÁGUIA-1 NO AR, minimap live.
+//
+// Recomposed after the first P1-B capture failed on pixels, not state: that
+// camera sat on the south sidewalk at (-2, 3.5, 12), half a metre off the south
+// row's building faces, so a brown wall filled the left 40% of the frame and
+// ÁGUIA-1 — staged at 27 m, far up the sight line — clipped off the top edge,
+// leaving only its cone, which read as a solid white sail. The camera now
+// stands ON the boulevard itself, in the south lane east of the chase, with
+// both building rows set well back at the frame edges; Rui runs at (-40, -3.6)
+// and ÁGUIA-1 holds the same station live play uses — ahead of him and off his
+// left shoulder, (-52, 24, -9.5), nose turned back toward him the way the live
+// follow holds it — body and rotor fully inside the upper frame, cone slanting
+// down to the Vela, the blockade at (-70, 0) and the Farol beyond it closing
+// the right of the frame.
 function stageHeli(G, step) {
   G.stage = STAGE.DELIVER;
   G.carrying = true;
   G.wanted = 5;
   G.money = 260;
   G.player.mode = 'car';
-  placeCar(G.playerCar, -26, -3.6, Math.PI / 2, 9);
-  G.player.x = -26; G.player.z = -3.6; G.player.heading = Math.PI / 2;
-  placeCar(G.policeUnits[0], -11, -3.6, Math.PI / 2, 8);
-  placeCar(G.policeUnits[2], -15, 3.6, Math.PI / 2, 7);
+  placeCar(G.playerCar, -40, -3.6, Math.PI / 2, 9);
+  G.player.x = -40; G.player.z = -3.6; G.player.heading = Math.PI / 2;
+  placeCar(G.policeUnits[0], -30, -3.6, Math.PI / 2, 8);
+  placeCar(G.policeUnits[2], -35, 3.6, Math.PI / 2, 7);
   // The blockade ahead, at the Farol end of the boulevard (real placement logic).
   placeRoadblock(G, G.playerCar);
   for (const id of [1, 3]) {
@@ -166,24 +179,24 @@ function stageHeli(G, step) {
   G.heli.forced = true;
   G.heli.state = 'active';
   G.heli.active = true;
-  G.heli.x = -48; G.heli.y = 27; G.heli.z = -2;
-  G.heli.heading = Math.PI / 2 + 0.5;
+  G.heli.x = -52; G.heli.y = 24; G.heli.z = -9.5;
+  G.heli.heading = -1.11;
   G.heli.rotorVel = 30; G.heli.rotor = 2.2;
-  G.heli.spotX = -26; G.heli.spotZ = -3.6;
+  G.heli.spotX = -40; G.heli.spotZ = -3.6;
   placeCar(G.traffic[0], 6, 3.6, -Math.PI / 2, 6);
   placeCar(G.traffic[1], 30, -3.6, Math.PI / 2, 5);
   parkExtraTraffic(G);
-  placePed(G.peds[0], -20, 8.8, Math.PI / 2, 'flee');
-  placePed(G.peds[1], -34, -8.8, -Math.PI / 2);
-  placePed(G.peds[2], 2, 8.8, Math.PI / 2);
+  placePed(G.peds[0], -30, 8.8, Math.PI / 2, 'flee');
+  placePed(G.peds[1], -48, -8.8, -Math.PI / 2);
+  placePed(G.peds[2], -18, -8.8, Math.PI / 2);
   G.dialogue = { who: 'Inspetora Quintela (rádio PMPL)', text: '“ÁGUIA-1 tem o Vela no holofote. Fecha a avenida junto ao Farol.”', until: 1e9 };
   G.seen = true;
   settle(G, step, 0.35);
   // Re-pin the principals (the settle lets the chase breathe a few metres).
-  placeCar(G.playerCar, -26, -3.6, Math.PI / 2, 9);
-  G.player.x = -26; G.player.z = -3.6; G.player.heading = Math.PI / 2;
-  placeCar(G.policeUnits[0], -11, -3.6, Math.PI / 2, 8);
-  placeCar(G.policeUnits[2], -15, 3.6, Math.PI / 2, 7);
+  placeCar(G.playerCar, -40, -3.6, Math.PI / 2, 9);
+  G.player.x = -40; G.player.z = -3.6; G.player.heading = Math.PI / 2;
+  placeCar(G.policeUnits[0], -30, -3.6, Math.PI / 2, 8);
+  placeCar(G.policeUnits[2], -35, 3.6, Math.PI / 2, 7);
   placeRoadblock(G, G.playerCar);
   for (const id of [1, 3]) {
     const u = G.policeUnits[id];
@@ -192,15 +205,15 @@ function stageHeli(G, step) {
   G.heli.forced = true;
   G.heli.state = 'active';
   G.heli.active = true;
-  G.heli.x = -48; G.heli.y = 27; G.heli.z = -2;
-  G.heli.heading = Math.PI / 2 + 0.5;
+  G.heli.x = -52; G.heli.y = 24; G.heli.z = -9.5;
+  G.heli.heading = -1.11;
   G.heli.rotorVel = 30; G.heli.rotor = 2.2;
-  G.heli.spotX = -26; G.heli.spotZ = -3.6;
+  G.heli.spotX = -40; G.heli.spotZ = -3.6;
   G.wanted = 5; G.stage = STAGE.DELIVER; G.carrying = true; G.money = 260;
   G.player.mode = 'car';
   G.dialogue = { who: 'Inspetora Quintela (rádio PMPL)', text: '“ÁGUIA-1 tem o Vela no holofote. Fecha a avenida junto ao Farol.”', until: 1e9 };
   G.seen = true;
-  setCameraLook(G, -2, 3.5, 12, -70, 10, -20);
+  setCameraLook(G, -19, 5.5, 4.5, -55, 9.5, -13);
 }
 
 // SHOT 2 — on foot in Rua das Flores: Rui at the festival stalls, the gold package on the
