@@ -34,12 +34,16 @@
   #bustFill { height: 100%; width: 0%; background: #ff4030; }
   #bustLabel { left: 50%; bottom: 164px; transform: translateX(-50%); font-size: 13px; letter-spacing: 3px; color: #ff9a8a; }
   .card { position: fixed; z-index: 9; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 38%, rgba(60,22,2,.28), rgba(16,5,0,.78)); pointer-events: none; }
-  .card .box { max-width: 560px; text-align: center; color: #fff3da; background: linear-gradient(165deg, rgba(52,22,6,.92), rgba(22,9,3,.94)); border: 1px solid rgba(255,190,90,.65); border-radius: 12px; padding: 30px 38px; box-shadow: 0 18px 60px rgba(0,0,0,.6); }
-  .card h1 { margin: 0 0 4px; font-size: 46px; letter-spacing: 5px; color: #ffcf87; }
+  .card .box { max-width: 600px; text-align: center; color: #fff3da; background: linear-gradient(165deg, rgba(52,22,6,.92), rgba(22,9,3,.94)); border: 1px solid rgba(255,190,90,.65); border-radius: 12px; padding: 32px 40px; box-shadow: 0 18px 60px rgba(0,0,0,.6); }
+  .card .kicker { font-size: 11px; letter-spacing: 4px; color: #ffb347; text-transform: uppercase; margin-bottom: 10px; }
+  .card h1 { margin: 0 0 4px; font-size: 54px; letter-spacing: 6px; color: #ffcf87; text-shadow: 0 2px 0 #7a3c08, 0 0 28px rgba(255,170,60,.5); }
   .card h2 { margin: 0 0 10px; font-size: 30px; letter-spacing: 3px; color: #ffcf87; }
+  .card .place { font-size: 15px; letter-spacing: 6px; color: #ffe2b8; margin-bottom: 6px; }
+  .card .rule { width: 120px; height: 2px; background: linear-gradient(90deg, transparent, #ffb347, transparent); margin: 8px auto 12px; }
   .card .tag { font-style: italic; color: #ffd9a0; margin-bottom: 14px; }
   .card p { font-size: 15.5px; line-height: 1.5; margin: 8px 0; }
-  .card .controls { font-size: 13px; color: #f4cf9d; line-height: 1.65; }
+  .card .job { background: rgba(255,179,71,.10); border: 1px solid rgba(255,190,90,.4); border-left: 5px solid #ffb347; border-radius: 6px; padding: 10px 14px; text-align: left; }
+  .card .controls { font-size: 13px; color: #f4cf9d; line-height: 1.65; background: rgba(0,0,0,.28); border: 1px solid rgba(255,190,90,.3); border-radius: 6px; padding: 9px 12px; margin-top: 12px; }
   .card .go { display: inline-block; margin-top: 16px; font-size: 17px; letter-spacing: 2px; color: #2b1608; background: linear-gradient(180deg, #ffd98f, #ffab4a); padding: 10px 26px; border-radius: 24px; font-weight: bold; }
   .hidden { display: none !important; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -78,11 +82,14 @@
 
 <div class="card" id="titleCard">
   <div class="box">
+    <div class="kicker">Polícia Municipal de Porto Lume · PMPL</div>
     <h1>GOLDEN HOUR</h1>
+    <div class="place">PORTO LUME</div>
+    <div class="rule"></div>
     <div class="tag">“Porto Lume paga as suas dívidas ao pôr-do-sol.”</div>
     <p>És <b>Rui Tavares</b>, antigo piloto de ralis. Dona Pilar Andrade guarda o porto —
     e a dívida do teu pai. Um trabalho de cada vez, antes que a luz se apague.</p>
-    <p><b>Trabalho 1 — O Pacote do Festival:</b> levanta o pacote da banca do festival na
+    <p class="job"><b>Trabalho 1 — O Pacote do Festival:</b> levanta o pacote da banca do festival na
     Rua das Flores e entrega-o na garagem de Dona Pilar, na avenida. A Polícia Municipal
     de Porto Lume (PMPL) está a ver — o CALOR sobe quando te veem cometer o crime.</p>
     <div class="controls">

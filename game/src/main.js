@@ -141,10 +141,13 @@ function runGame() {
       if (G.screen === 'title' || G.screen === 'busted' || G.screen === 'done') G.screen = 'play';
     }
     if (G.screen === 'title') {
-      // A slow golden-hour drift over the boulevard toward the Farol while the card is up.
+      // Title backdrop (P1-C framing): the same slow drift over the boulevard,
+      // but the look point now sits on the Farol rise to the west-northwest, so
+      // the card floats over the avenue running toward the lighthouse and the
+      // low sun — Porto Lume's postcard axis — instead of the side street.
       G.time += 1 / 60;
       const t = G.time;
-      setCameraLook(G, -4 + Math.cos(t * 0.05) * 9, 8.5, 1.5 + Math.sin(t * 0.05) * 2.5, 20, 1.5, -2);
+      setCameraLook(G, -4 + Math.cos(t * 0.05) * 9, 8.5, 1.5 + Math.sin(t * 0.05) * 2.5, -58, 8, -26);
       updateTraffic(G, 1 / 60);
       updatePeds(G, 1 / 60);
       accumulator = 0;
