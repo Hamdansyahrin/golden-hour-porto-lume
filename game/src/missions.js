@@ -131,6 +131,73 @@ export const ESCORT_TO = { x: 24.7, z: 20 };
 export const ESCORT_SPEED = 1.35;
 export const ESCORT_RANGE = 14;
 
+/**
+ * The garage shop's paint shelf: index 0 is the Vela's factory teal (its
+ * P0 colour); each purchase advances G.upgrades.paint by one (mod 5) and
+ * recolours the car at once — paintCar reads car.body every frame.
+ */
+export const PAINTS = [
+  { name: 'Fábrica Teal', body: [0.12, 0.55, 0.6] },
+  { name: 'Coral do Farol', body: [0.85, 0.32, 0.22] },
+  { name: 'Azul das Docas', body: [0.2, 0.4, 0.75] },
+  { name: 'Ouro do Festival', body: [0.9, 0.7, 0.2] },
+  { name: 'Verde da Maré', body: [0.15, 0.5, 0.4] },
+];
+export const SHOP_PRICES = { paint: 150, tune: 500, bumper: 350 };
+
+/** The shop menu model hud.js renders while G.shopOpen: balance + the four rows (3 items + Sair). */
+export function shopMenu(G) {
+  const next = PAINTS[(G.upgrades.paint + 1) % PAINTS.length];
+  const entries = [
+    { label: `Pintura nova do Vela — ${next.name}`, price: SHOP_PRICES.paint, note: '' },
+    { label: 'Motor afinado', price: SHOP_PRICES.tune, note: G.upgrades.tune ? 'já instalado' : '' },
+    { label: 'Pára-choques reforçado', price: SHOP_PRICES.bumper, note: G.upgrades.bumper ? 'já instalado' : '' },
+    { label: 'Sair', price: null, note: '' },
+  ];
+  const html = entries.map((e, i) => {
+    const sel = i === G.shopSel;
+    const price = e.price != null ? ` — ${e.price} lumes` : '';
+    const note = e.note ? ` (${e.note})` : '';
+    return `<div class="shopItem${sel ? ' sel' : ''}">${sel ? '› ' : ''}${e.label}${price}${note}</div>`;
+  }).join('');
+  return { balance: `Saldo: ${G.money} lumes`, html };
+}
+
+/**
+ * Activate the selected shop row (ENTER while the shop is open). Buying
+ * rules: an owned one-time item and a too-thin purse both refuse WITHOUT
+ * charging; a sale deducts once, applies at once and confirms with the new
+ * balance in dialogue. Row 3 (Sair) just closes the menu.
+ */
+function shopActivate(G) {
+  const sel = G.shopSel;
+  if (sel === 3) { G.shopOpen = false; return; }
+  if (sel === 0) {
+    const price = SHOP_PRICES.paint;
+    if (G.money < price) { say(G, 'Dona Pilar', `Lumes insuficientes — faltam ${price - G.money}.`); return; }
+    G.money -= price;
+    G.upgrades.paint = (G.upgrades.paint + 1) % PAINTS.length;
+    G.playerCar.body = [...PAINTS[G.upgrades.paint].body];
+    say(G, 'Dona Pilar', `“${PAINTS[G.upgrades.paint].name} — fica-lhe bem, ao Vela. Saldo: ${G.money} lumes.”`);
+    return;
+  }
+  if (sel === 1) {
+    if (G.upgrades.tune) { say(G, 'Dona Pilar', 'Já está instalado no Vela.'); return; }
+    const price = SHOP_PRICES.tune;
+    if (G.money < price) { say(G, 'Dona Pilar', `Lumes insuficientes — faltam ${price - G.money}.`); return; }
+    G.money -= price;
+    G.upgrades.tune = true;
+    say(G, 'Dona Pilar', `“Motor afinado — o Vela respira melhor. Saldo: ${G.money} lumes.”`);
+    return;
+  }
+  if (G.upgrades.bumper) { say(G, 'Dona Pilar', 'Já está instalado no Vela.'); return; }
+  const price = SHOP_PRICES.bumper;
+  if (G.money < price) { say(G, 'Dona Pilar', `Lumes insuficientes — faltam ${price - G.money}.`); return; }
+  G.money -= price;
+  G.upgrades.bumper = true;
+  say(G, 'Dona Pilar', `“Pára-choques reforçado — aguenta o que a avenida der. Saldo: ${G.money} lumes.”`);
+}
+
 /** Side-run destinations (item 2b), rotated by the completed-run counter. */
 export const SIDE_DESTS = [
   { x: -38, z: 45, name: 'Docas' },
@@ -584,8 +651,24 @@ export function updateMission(G, dt) {
     if (G.timer <= 0) failMission(G);
   }
 
+  // --- the garage shop, while open: E cycles the menu, ENTER (latched as
+  // G.confirmPressed by main.js) buys or leaves. Mission phases below all
+  // stand down while the menu is up; CALOR and the bust meter still run.
+  const inShop = G.shopOpen;
+  if (inShop) {
+    if (G.interactPressed) {
+      G.shopSel = (G.shopSel + 1) % 4;
+      G.interactPressed = false;
+    }
+    if (G.confirmPressed) {
+      shopActivate(G);
+      G.confirmPressed = false;
+    }
+    G.prompt = null;
+  }
+
   // --- GO: the pickup end of M1 (the stall lift) and M2 (the Docas crate).
-  if (G.stage === STAGE.GO && G.missionIdx === 1) {
+  if (!inShop && G.stage === STAGE.GO && G.missionIdx === 1) {
     // M2: the lantern-oil crate on the Docas apron. This cargo is LEGAL —
     // the lift is no crime, sets no crime timer and raises no CALOR.
     const crate = LIGHT_CRATES[2]; // the Docas point (-38, 45)
@@ -598,7 +681,7 @@ export function updateMission(G, dt) {
       G.stage = STAGE.DELIVER;
       say(G, 'Rui', 'Azeite de lanternas — carga legal. A PMPL que vá chatear outro.');
     }
-  } else if (G.stage === STAGE.GO) {
+  } else if (!inShop && G.stage === STAGE.GO) {
     // M1: the lift at the festival stall (P0 behaviour, unchanged).
     G.markerX = WORLD.stall.x; G.markerZ = WORLD.stall.z;
     const near = Math.hypot(p.x - WORLD.stall.x, p.z - WORLD.stall.z) < 3.1 && p.mode === 'foot';
@@ -621,7 +704,7 @@ export function updateMission(G, dt) {
   // Rui (his position tracks the Vela while driving) is actually inside the
   // garage zone carrying the mission's cargo — staged shots set carrying
   // directly, and with missionIdx 0 that reads as the M1 package, as before.
-  if (G.stage === STAGE.DELIVER) {
+  if (!inShop && G.stage === STAGE.DELIVER) {
     G.markerX = WORLD.garage.x; G.markerZ = WORLD.garage.z;
     G.prompt = null;
     const inZone = Math.abs(p.x - WORLD.garage.x) < WORLD.garage.halfX && Math.abs(p.z - WORLD.garage.z) < WORLD.garage.halfZ + 1.5;
@@ -632,7 +715,7 @@ export function updateMission(G, dt) {
   }
 
   // --- ESCORT (M3): Dona Amélia walks her sidewalk; Rui's nearness is the throttle.
-  if (G.stage === STAGE.ESCORT) {
+  if (!inShop && G.stage === STAGE.ESCORT) {
     G.prompt = null;
     const ped = G.escort;
     if (ped) {
@@ -667,7 +750,7 @@ export function updateMission(G, dt) {
 
   // --- COLLECT (M4): three light crates by proximity (foot or car — Rui's
   // position tracks the Vela), then back to the stall with all three.
-  if (G.stage === STAGE.COLLECT) {
+  if (!inShop && G.stage === STAGE.COLLECT) {
     G.prompt = null;
     if (G.screen === 'play') {
       for (const c of G.crates) {
@@ -696,7 +779,7 @@ export function updateMission(G, dt) {
 
   // --- FREE: between missions the marker sits on the next giver; E at the
   // giver opens the intro card (the mission starts when the card closes).
-  if (G.stage === STAGE.FREE) {
+  if (!inShop && G.stage === STAGE.FREE) {
     G.prompt = null;
     const def = currentMission(G);
     if (!def) {
@@ -711,6 +794,26 @@ export function updateMission(G, dt) {
           G.interactPressed = false;
           openIntro(G);
         }
+      }
+    }
+  }
+
+  // --- opening the garage shop: on foot inside the garage zone, CALOR at
+  // zero, empty-handed and not mid-delivery. It yields to any prompt a
+  // mission already claimed this step (M2's giver stands in this same
+  // zone, and her accept prompt wins near the door).
+  if (!inShop && !G.prompt && G.screen === 'play' && p.mode === 'foot'
+    && G.wanted === 0 && !hasCargo(G) && G.stage !== STAGE.DELIVER) {
+    const inGarage = Math.abs(p.x - WORLD.garage.x) < WORLD.garage.halfX
+      && Math.abs(p.z - WORLD.garage.z) < WORLD.garage.halfZ + 1.5;
+    if (inGarage) {
+      G.prompt = '<b>E</b> — garagem de Dona Pilar: afinar o Vela Sprint';
+      if (G.interactPressed) {
+        G.interactPressed = false;
+        G.shopOpen = true;
+        G.shopSel = 0;
+        G.prompt = null;
+        say(G, 'Dona Pilar', '“Vê lá do que o Vela precisa, Rui. Preços de amiga.”');
       }
     }
   }

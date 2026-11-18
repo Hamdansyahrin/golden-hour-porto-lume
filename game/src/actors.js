@@ -213,7 +213,9 @@ export function collideCars(G, dt) {
       // caught boulevard cars frozen against a festival stall for minutes), while
       // with push-out alone their waypoint steering slides them around the corner
       // and free within seconds.
-      if (car === G.playerCar) car.speed *= 0.55;
+      // The reinforced bumper (P1-D shop) softens the player's building
+      // hit from 0.55 to 0.8; every other car is unaffected, as before.
+      if (car === G.playerCar) car.speed *= (G.upgrades && G.upgrades.bumper) ? 0.8 : 0.55;
     }
   }
   for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
@@ -228,8 +230,13 @@ export function collideCars(G, dt) {
       const impact = Math.abs(a.speed) + Math.abs(c.speed);
       // Hard contact costs speed; a gentle touch in a queue barely does, so two
       // stopped cars are not pinned by the damping while the push separates them.
+      // The reinforced bumper (P1-D shop) softens only the PLAYER car's share
+      // of the damping to 0.85; the other car keeps the standard factor, and
+      // `impact` above stays computed from the pre-damp speeds, as before.
       const damp = impact > 4 ? 0.6 : 0.92;
-      a.speed *= damp; c.speed *= damp;
+      const bumper = !!(G.upgrades && G.upgrades.bumper);
+      a.speed *= (bumper && a === G.playerCar) ? 0.85 : damp;
+      c.speed *= (bumper && c === G.playerCar) ? 0.85 : damp;
       if (impact > 7 && (a === G.playerCar || c === G.playerCar) && G.player.mode === 'car'
         && Math.abs(G.playerCar.speed) > 3) {
         // A hard ram BY Rui: missions.js (CALOR rules R2/R3) needs to know WHAT he

@@ -45,6 +45,9 @@
   .card .job { background: rgba(255,179,71,.10); border: 1px solid rgba(255,190,90,.4); border-left: 5px solid #ffb347; border-radius: 6px; padding: 10px 14px; text-align: left; }
   .card .controls { font-size: 13px; color: #f4cf9d; line-height: 1.65; background: rgba(0,0,0,.28); border: 1px solid rgba(255,190,90,.3); border-radius: 6px; padding: 9px 12px; margin-top: 12px; }
   .card .go { display: inline-block; margin-top: 16px; font-size: 17px; letter-spacing: 2px; color: #2b1608; background: linear-gradient(180deg, #ffd98f, #ffab4a); padding: 10px 26px; border-radius: 24px; font-weight: bold; }
+  #shopItems { text-align: left; font-size: 15.5px; line-height: 1.9; margin: 10px 0 2px; }
+  #shopItems .sel { color: #ffcf87; font-weight: bold; }
+  #shopBalance { font-size: 16px; color: #ffe9b0; font-weight: bold; }
   .hidden { display: none !important; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
@@ -115,6 +118,16 @@
     <p id="doneText">O pacote chegou à garagem de Dona Pilar.</p>
     <p id="donePay"><b>+450 lumes</b> · A dívida do teu pai encolhe. Porto Lume respira — por agora.</p>
     <span class="go">CONTINUAR A ANDAR — prime ENTER</span>
+  </div>
+</div>
+
+<div class="card hidden" id="shopCard">
+  <div class="box">
+    <div class="kicker">Garagem · Avenida do Farol</div>
+    <h2>GARAGEM DE DONA PILAR</h2>
+    <p id="shopBalance">Saldo: 0 lumes</p>
+    <div id="shopItems"></div>
+    <div class="controls">E — seguinte · ENTER — comprar · ENTER em Sair — fechar</div>
   </div>
 </div>
 

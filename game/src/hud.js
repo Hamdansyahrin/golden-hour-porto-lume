@@ -4,11 +4,12 @@
 // meter with its sight state, the money purse, the vehicle card with its
 // speedometer, the bust meter, prompts, dialogue and the card overlays for
 // title / detained / job-done and the mission intro & fail card (screen
-// 'card', filled from G.card; the job-done card is filled from G.lastDone).
+// 'card', filled from G.card; the job-done card is filled from G.lastDone),
+// plus the garage shop card (filled from missions.js's shopMenu while open).
 // Text is only rewritten when it changes, so a frame allocates nothing in the
 // steady state.
 
-import { CALOR_LABEL, missionView } from './missions.js';
+import { CALOR_LABEL, missionView, shopMenu } from './missions.js';
 import { WORLD } from './city.js';
 
 /** Format a live mission timer as m:ss for the objective line. */
@@ -28,6 +29,7 @@ export function createHud() {
   const introCard = el('introCard'), cardKicker = el('cardKicker'), cardTitle = el('cardTitle');
   const cardBody = el('cardBody'), cardGo = el('cardGo');
   const doneText = el('doneText'), donePay = el('donePay');
+  const shopCard = el('shopCard'), shopBalance = el('shopBalance'), shopItems = el('shopItems');
   const status = el('status');
   const cache = new Map();
   function set(elm, key, text) {
@@ -87,6 +89,13 @@ export function createHud() {
       if (G.screen === 'done' && G.lastDone) {
         set(doneText, 'doneText', G.lastDone.story);
         setHtml(donePay, 'donePay', `<b>+${G.lastDone.payout} lumes</b> · ${G.lastDone.payText}`);
+      }
+      // The garage shop card, filled from the shop menu model while open.
+      toggle(shopCard, 'shop', !!G.shopOpen && G.screen === 'play');
+      if (G.shopOpen) {
+        const menu = shopMenu(G);
+        set(shopBalance, 'shopBal', menu.balance);
+        setHtml(shopItems, 'shopItems', menu.html);
       }
       // The intro / fail card (screen 'card'), filled from G.card.
       toggle(introCard, 'card', G.screen === 'card');

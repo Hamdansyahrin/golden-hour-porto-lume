@@ -108,6 +108,25 @@ export function updatePlayer(G, input, dt) {
   const p = G.player;
   let spent = false;
   G.camYaw += input.takeOrbit();
+  // The garage shop (P1-D): while Dona Pilar's menu is open Rui stands
+  // still — movement and throttle have no effect, and the E press belongs
+  // to the menu, never to car entry/exit (the press is NOT spent here, so
+  // updateMission can cycle the menu with it). The camera keeps the update
+  // its current mode would normally run, so the frame stays alive.
+  if (G.shopOpen) {
+    p.speed = 0;
+    if (p.mode === 'foot') {
+      const back = 6.4;
+      const anchorX = p.x + Math.sin(G.camYaw) * back;
+      const anchorZ = p.z + Math.cos(G.camYaw) * back;
+      easeCamera(G, anchorX, 3.1, anchorZ, p.x, 1.55, p.z, dt, 7);
+    } else {
+      const car = G.playerCar;
+      const [fx, fz] = forwardOf(car.heading);
+      easeCamera(G, car.x - fx * CHASE_DIST, CHASE_CAM_Y, car.z - fz * CHASE_DIST, car.x, CHASE_LOOK_Y, car.z, dt, 5.2);
+    }
+    return false;
+  }
   // Was Rui already driving when this step began? The exit check below requires it:
   // without the guard, the same E press that enters the car (speed set to 0) would
   // satisfy the exit condition in the very same step and throw him straight back
@@ -190,7 +209,11 @@ export function updatePlayer(G, input, dt) {
   }
   const th = input.throttle();
   const steer = input.steer();
-  if (th > 0) car.speed += 10.5 * dt * (1 - Math.max(0, car.speed) / 27);
+  // Forward drive: the stock Vela pulls at 10.5 toward a 27 m/s top; Dona
+  // Pilar's tuned motor (P1-D shop) pulls ~15% harder toward ~31 m/s.
+  // Reverse, brake and drag below are untouched by the tune.
+  const tune = !!(G.upgrades && G.upgrades.tune);
+  if (th > 0) car.speed += (tune ? 12.1 : 10.5) * dt * (1 - Math.max(0, car.speed) / (tune ? 31 : 27));
   else if (th < 0) {
     if (car.speed > 0.4) car.speed -= 22 * dt;
     else car.speed = Math.max(-8.5, car.speed - 6.5 * dt);
