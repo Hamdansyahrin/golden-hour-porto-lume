@@ -235,7 +235,8 @@ export function createGameState(colliders) {
     // shot) calls it up. state is parked / active / return; rotor is a sim-time phase.
     heli: {
       active: false, forced: false, state: 'parked',
-      x: -72, y: 0.9, z: -26, heading: 0.6, rotor: 0,
+      x: -72, y: 0.9, z: -26, heading: 0.6, rotor: 0, rotorVel: 0, bank: 0,
+      pvx: 0, pvz: 0,
       spotX: -72, spotZ: -26, padX: -72, padZ: -26,
     },
     // The current roadblock engagement (actors.js places and releases it).

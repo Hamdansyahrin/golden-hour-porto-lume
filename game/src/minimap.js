@@ -76,6 +76,14 @@ export function createMinimap(canvas) {
         dot(px(cop.x, cx), pz(cop.z, cz), 4, blink ? '#3f7dff' : '#ff4030');
         dot(px(cop.x, cx), pz(cop.z, cz), 1.8, '#ffffff');
       }
+      // ÁGUIA-1 while airborne: a gold diamond over its shadow position.
+      if (G.heli.state !== 'parked') {
+        const hx = px(G.heli.x, cx), hz = pz(G.heli.z, cz);
+        ctx.fillStyle = '#ffd23c';
+        ctx.beginPath();
+        ctx.moveTo(hx, hz - 5); ctx.lineTo(hx + 4, hz); ctx.lineTo(hx, hz + 5); ctx.lineTo(hx - 4, hz);
+        ctx.closePath(); ctx.fill();
+      }
       // Rui: a white arrow on his heading.
       ctx.translate(C, C);
       ctx.rotate(headingAngle(G.player.heading));

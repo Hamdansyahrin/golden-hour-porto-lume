@@ -12,7 +12,7 @@ import { createRenderer, MeshBuilder } from './engine.js';
 import { createInput } from './input.js';
 import { createGameState, updateMission } from './missions.js';
 import { updatePlayer, setCameraLook } from './player.js';
-import { paintCar, paintPerson, paintMarker, updateTraffic, updatePolice, updatePeds, collideCars } from './actors.js';
+import { paintCar, paintPerson, paintMarker, paintHeli, updateTraffic, updatePolice, updatePeds, updateHeli, collideCars } from './actors.js';
 import { createHud } from './hud.js';
 import { createMinimap } from './minimap.js';
 import { stageShot } from './shots.js';
@@ -39,6 +39,7 @@ function paint() {
   for (const car of G.traffic) paintCar(dyn, car, flash);
   for (const cop of G.policeUnits) paintCar(dyn, cop, flash);
   paintCar(dyn, G.playerCar, flash);
+  paintHeli(dyn, G.heli);
   for (const ped of G.peds) paintPerson(dyn, ped);
   if (G.player.mode === 'foot') paintPerson(dyn, G.player);
   if (G.markerX !== null && G.markerX !== undefined && G.screen === 'play') paintMarker(dyn, G.markerX, G.markerZ, G.time);
@@ -68,6 +69,7 @@ function stepWorld(dt, input) {
   }
   updateTraffic(G, dt);
   updatePolice(G, dt);
+  updateHeli(G, dt);
   updatePeds(G, dt);
   collideCars(G, dt);
   updateMission(G, dt);
@@ -83,6 +85,7 @@ function runShot(name) {
     G.time += dt;
     updateTraffic(G, dt);
     updatePolice(G, dt);
+    updateHeli(G, dt);
     updatePeds(G, dt);
     collideCars(G, dt);
     updateMission(G, dt);

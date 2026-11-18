@@ -531,6 +531,127 @@ export function updatePolice(G, dt) {
   G.police.pursuing = G.policeUnits[0].pursuing;
 }
 
+// ------------------------------------------------------------------ helicopter
+
+/**
+ * ÁGUIA-1, the PMPL helicopter (P1-B). Parked on the Farol apron until CALOR 5★
+ * (or a staged shot's `forced` flag) calls it up; then it climbs to a 28 m hover
+ * offset behind/above Rui and lerps to stay over his area, spotlight pinned to
+ * him. When CALOR falls it flies home and lands — it never pops in or out.
+ * All motion derives from game state and the fixed step: the rotor phase is
+ * sim time only, no clock, no randomness.
+ */
+export function updateHeli(G, dt) {
+  const h = G.heli;
+  const t = G.player.mode === 'car' ? G.playerCar : G.player;
+  const shouldFly = (G.wanted >= 5 || h.forced) && G.cooldownT <= 0;
+  if (shouldFly) h.state = 'active';
+  else if (h.state === 'active') h.state = 'return';
+  h.active = h.state === 'active';
+
+  let tx, ty, tz, rate;
+  if (h.state === 'active') {
+    const [fx, fz] = forwardOf(t.heading);
+    tx = t.x - fx * 7; tz = t.z - fz * 7; ty = 28; rate = 1.7;
+    // The spotlight tracks Rui himself, tighter than the airframe follows.
+    h.spotX += (t.x - h.spotX) * Math.min(1, dt * 6);
+    h.spotZ += (t.z - h.spotZ) * Math.min(1, dt * 6);
+  } else if (h.state === 'return') {
+    tx = h.padX; tz = h.padZ; rate = 1.1;
+    ty = Math.hypot(tx - h.x, tz - h.z) > 5 ? 28 : 0.9; // stay high until over the pad
+    h.spotX += (h.x - h.spotX) * Math.min(1, dt * 3);
+    h.spotZ += (h.z - h.spotZ) * Math.min(1, dt * 3);
+  } else {
+    tx = h.padX; tz = h.padZ; ty = 0.9; rate = 3;
+  }
+  const ox = h.x, oz = h.z;
+  const k = Math.min(1, rate * dt);
+  h.x += (tx - h.x) * k;
+  h.z += (tz - h.z) * k;
+  h.y += (ty - h.y) * Math.min(1, 1.3 * dt);
+  h.pvx = dt > 0 ? (h.x - ox) / dt : 0;
+  h.pvz = dt > 0 ? (h.z - oz) / dt : 0;
+  if (h.state !== 'parked') {
+    const want = headingTo(t.x - h.x, t.z - h.z);
+    h.heading += wrapAngle(want - h.heading) * Math.min(1, dt * 1.6);
+  }
+  // Bank into the lateral drift (velocity across the nose), capped at ~0.35 rad.
+  const rx = Math.cos(h.heading), rz = Math.sin(h.heading);
+  const lateral = h.pvx * rx + h.pvz * rz;
+  h.bank += (Math.max(-0.35, Math.min(0.35, lateral * 0.05)) - h.bank) * Math.min(1, dt * 3);
+  // Rotor spin-up/down and phase (visual only, driven by sim time).
+  const targetVel = h.state === 'parked' ? 0 : 30;
+  h.rotorVel += (targetVel - h.rotorVel) * Math.min(1, dt * 0.8);
+  h.rotor += h.rotorVel * dt;
+  if (h.state === 'return' && Math.hypot(h.padX - h.x, h.padZ - h.z) < 1.5 && Math.abs(h.y - 0.9) < 0.35) {
+    h.state = 'parked';
+  }
+}
+
+/**
+ * Paint ÁGUIA-1: an original low-poly helicopter — white PMPL body with the blue
+ * band and a gold callsign block on the tail (the engine has no textures, so the
+ * identification is livery markings, not lettering), spinning main rotor (two
+ * crossed blades), tail rotor with an orbiting tip, skids, and — while active —
+ * the spotlight: a pale emissive cone drawn as alternating segments (the gaps
+ * let the city show through, which reads as translucency in a renderer with no
+ * alpha) plus a bright ground disc under Rui.
+ */
+export function paintHeli(b, heli) {
+  const { x, z } = heli;
+  const y = heli.y, h = heli.heading + heli.bank * 0.4;
+  const fx = -Math.sin(h), fz = Math.cos(h), rx = Math.cos(h), rz = Math.sin(h);
+  if (y < 7) b.blob(x, z, 3.1);
+  const at = (lx, ly, lz) => [x + rx * lx + fx * lz, y + ly, z + rz * lx + fz * lz];
+  // Body and PMPL livery.
+  b.box(x, y, z, 2.0, 1.5, 4.4, h, [0.92, 0.93, 0.95]);
+  b.box(x, y - 0.25, z, 2.04, 0.5, 4.44, h, [0.2, 0.35, 0.85]); // PMPL blue band
+  const nose = at(0, 0.18, 1.85);
+  b.box(nose[0], nose[1], nose[2], 1.6, 0.95, 0.9, h, [0.12, 0.2, 0.34]); // glasshouse
+  const boom = at(0, 0.25, -3.1);
+  b.box(boom[0], boom[1], boom[2], 0.5, 0.5, 2.6, h, [0.88, 0.89, 0.92]);
+  const fin = at(0, 0.75, -4.35);
+  b.box(fin[0], fin[1], fin[2], 0.16, 1.15, 0.7, h, [0.2, 0.35, 0.85]);
+  const mark = at(0, 0.3, -4.3);
+  b.box(mark[0], mark[1], mark[2], 0.56, 0.4, 0.5, h, [1, 0.75, 0.25], { emissive: true }); // ÁGUIA-1 gold block
+  // Tail rotor: a slim blade plus a tip that orbits in the vertical plane.
+  const tr = at(0.34, 0.75, -4.35);
+  b.box(tr[0], tr[1], tr[2], 0.08, 1.05, 0.26, h, DARK);
+  const tipA = heli.rotor * 3;
+  const tip = at(0.36, 0.75 + Math.sin(tipA) * 0.48, -4.35 + Math.cos(tipA) * 0.1);
+  b.box(tip[0], tip[1], tip[2], 0.1, 0.18, 0.18, h, [1, 0.85, 0.5], { emissive: true });
+  // Main rotor: mast plus two crossed blades turning with the sim-time phase.
+  const mast = at(0, 0.9, 0.2);
+  b.box(mast[0], mast[1], mast[2], 0.3, 0.35, 0.3, h, DARK);
+  b.box(x, y + 1.08, z, 7.6, 0.07, 0.42, heli.rotor, [0.16, 0.16, 0.2]);
+  b.box(x, y + 1.08, z, 0.42, 0.07, 7.6, heli.rotor, [0.16, 0.16, 0.2]);
+  // Skids.
+  for (const s of [-0.85, 0.85]) {
+    const sk = at(s, -1.05, 0);
+    b.box(sk[0], sk[1], sk[2], 0.12, 0.12, 3.4, h, DARK);
+    const st = at(s, -0.85, 0.9);
+    b.box(st[0], st[1], st[2], 0.1, 0.35, 0.1, h, DARK);
+  }
+  // Spotlight cone + ground disc while on station.
+  if (heli.active) {
+    const apex = [x, y - 0.8, z];
+    const seg = 8, R = 3.1;
+    for (let i = 0; i < seg; i += 2) { // alternating segments: see-through beam
+      const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
+      const p0 = [heli.spotX + Math.cos(a0) * R, 0.15, heli.spotZ + Math.sin(a0) * R];
+      const p1 = [heli.spotX + Math.cos(a1) * R, 0.15, heli.spotZ + Math.sin(a1) * R];
+      b.tri(apex, p0, p1, [0, 1, 0], [1, 0.92, 0.65], 1);
+    }
+    for (let i = 0; i < 10; i++) {
+      const a0 = (i / 10) * Math.PI * 2, a1 = ((i + 1) / 10) * Math.PI * 2;
+      b.tri([heli.spotX, 0.07, heli.spotZ],
+        [heli.spotX + Math.cos(a0) * 3.4, 0.07, heli.spotZ + Math.sin(a0) * 3.4],
+        [heli.spotX + Math.cos(a1) * 3.4, 0.07, heli.spotZ + Math.sin(a1) * 3.4],
+        [0, 1, 0], [1, 0.94, 0.7], 1);
+    }
+  }
+}
+
 // ------------------------------------------------------------------ pedestrians
 
 export function updatePeds(G, dt) {
