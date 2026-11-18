@@ -779,20 +779,51 @@ export function updateMission(G, dt) {
 
   // --- FREE: between missions the marker sits on the next giver; E at the
   // giver opens the intro card (the mission starts when the card closes).
+  // A side run in progress (item 2b) owns the marker instead, and the stall
+  // offers the next one whenever Rui is free, empty-handed and off cooldown.
   if (!inShop && G.stage === STAGE.FREE) {
     G.prompt = null;
-    const def = currentMission(G);
-    if (!def) {
-      G.markerX = null; G.markerZ = null;
+    if (G.cargo === 'mantimentos' && G.sideDest) {
+      // Side run under way: legal cargo, no timer — deliver by entering the
+      // destination radius (foot or car). Pays exactly once: the delivery
+      // transition itself clears the cargo.
+      G.markerX = G.sideDest.x; G.markerZ = G.sideDest.z;
+      if (G.screen === 'play' && Math.hypot(p.x - G.sideDest.x, p.z - G.sideDest.z) <= 4) {
+        G.money += SIDE_PAY;
+        G.sideRuns += 1;
+        const destName = G.sideDest.name;
+        setCargo(G, null);
+        G.sideDest = null;
+        G.sideCd = SIDE_COOLDOWN;
+        say(G, 'Sr. Baltazar', `“Mantimentos entregues — ${destName}. Cento e vinte lumes; o festival agradece.”`);
+      }
     } else {
-      const gp = giverPoint(G.missionIdx);
-      G.markerX = gp.x; G.markerZ = gp.z;
-      if (G.missionIdx > 0 && G.screen === 'play' && p.mode === 'foot'
-        && Math.hypot(p.x - gp.x, p.z - gp.z) < 3.1) {
-        G.prompt = `<b>E</b> — aceitar o trabalho: ${def.title}`;
+      const def = currentMission(G);
+      if (!def) {
+        G.markerX = null; G.markerZ = null;
+      } else {
+        const gp = giverPoint(G.missionIdx);
+        G.markerX = gp.x; G.markerZ = gp.z;
+        if (G.missionIdx > 0 && G.screen === 'play' && p.mode === 'foot'
+          && Math.hypot(p.x - gp.x, p.z - gp.z) < 3.1) {
+          G.prompt = `<b>E</b> — aceitar o trabalho: ${def.title}`;
+          if (G.interactPressed) {
+            G.interactPressed = false;
+            openIntro(G);
+          }
+        }
+      }
+      // Side-run start at the mission stall. The giver's accept prompt (M4's
+      // giver stands at this same stall) has already claimed the step when
+      // it applies, so the run is only offered on a free prompt.
+      if (!G.prompt && G.screen === 'play' && p.mode === 'foot' && G.sideCd <= 0
+        && !hasCargo(G) && Math.hypot(p.x - WORLD.stall.x, p.z - WORLD.stall.z) < 3.1) {
+        G.prompt = '<b>E</b> — corrida de mantimentos do festival (+120 lumes)';
         if (G.interactPressed) {
           G.interactPressed = false;
-          openIntro(G);
+          G.sideDest = SIDE_DESTS[G.sideRuns % SIDE_DESTS.length];
+          setCargo(G, 'mantimentos');
+          say(G, 'Sr. Baltazar', `“Leva estes mantimentos: ${G.sideDest.name}. Cento e vinte lumes à entrega, Rui.”`);
         }
       }
     }
