@@ -544,11 +544,11 @@ export function updatePolice(G, dt) {
 // ------------------------------------------------------------------ helicopter
 
 /**
- * ÁGUIA-1, the PMPL helicopter (P1-B). Parked on the Farol apron until CALOR 5★
- * (or a staged shot's `forced` flag) calls it up; then it climbs to an 18 m hover
- * well ahead of Rui and off his left shoulder and lerps to stay over his area,
- * spotlight pinned to him. When CALOR falls it flies home and lands — it never
- * pops in or out.
+ * ÁGUIA-1, the PMPL helicopter (P1-B). It waits on the Farol apron until
+ * CALOR reaches 5★ — a staged shot can also force it up — then lifts to an
+ * 18 m hover well ahead of Rui and off his left shoulder, tracking him from
+ * there with its spotlight held on him. When CALOR drops it returns to the
+ * pad and lands; it never pops in or out.
  * All motion derives from game state and the fixed step: the rotor phase is
  * sim time only, no clock, no randomness.
  */
@@ -562,30 +562,28 @@ export function updateHeli(G, dt) {
 
   let tx, ty, tz, rate;
   if (h.state === 'active') {
-    // On station well AHEAD of Rui and off his left shoulder: 24 m ahead, 7 m
-    // to the side, 18 m up. The first P1-B cut hovered 7 m BEHIND him at 28 m,
-    // so in real play the airframe only ever sat behind the chase camera; the
-    // second cut (12 m ahead, 26 m up) still left it ~28° above the chase
-    // camera's top edge in live play — the player saw only the spotlight cone
-    // and pool. At 24 m ahead / 18 m up the airframe sits inside the eased
-    // 5★ chase frame (player.js), over the road Rui is driving into, its cone
-    // slanting back onto him. (cos h, sin h) is the heading's right vector, so
-    // subtracting it puts the heli on his left — the Farol side of a westbound
-    // run down the boulevard.
+    // Live station: 24 m ahead of Rui, 7 m to his left, at 18 m. An earlier
+    // placement (12 m ahead, 26 m up) sat roughly 28° above the top edge of
+    // the chase camera during live play, so only the spotlight ever showed;
+    // this station puts the airframe itself inside the eased 5★ chase frame
+    // in player.js, hanging over the road Rui is about to drive into while
+    // its cone slants back onto him. forwardOf gives the nose direction and
+    // (cos h, sin h) is the heading's right vector — subtracting that vector
+    // shifts the station to Rui's left.
     const [fx, fz] = forwardOf(t.heading);
     tx = t.x + fx * 24 - Math.cos(t.heading) * 7;
     tz = t.z + fz * 24 - Math.sin(t.heading) * 7;
-    ty = 18; rate = 1.7;
-    // Rooftop guard: 18 m clears every ordinary roof (the tallest pitched
-    // ridge in town is ~17.8 m) once ON station, and the station itself is
-    // player-relative, so it always hangs over Rui's road, never over a
-    // block. But the lerp ACROSS blocks to a new station can cross rooftops,
-    // and the Farol and clock tower stand 23.4 m tall — so, exactly as the
-    // return leg stays high until it is over the pad, a transit that is
-    // still far from its station flies at 25 m and only settles to 18 m for
-    // the final approach over the road.
+    ty = 18;
+    rate = 1.7;
+    // Rooftop guard for the transit, not the station. Once settled, 18 m is
+    // enough: ordinary roofs top out around 17.8 m at the ridge and the
+    // station is player-relative, so it always sits over Rui's road. Getting
+    // there is the risk — a cross-block lerp can cut over rooftops, and the
+    // Farol and clock tower rise to about 23.4 m. So while the heli is still
+    // more than 12 m from its station it holds 25 m, settling to 18 m only
+    // on final approach — the same stay-high pattern the return leg uses.
     if (Math.hypot(tx - h.x, tz - h.z) > 12) ty = 25;
-    // The spotlight tracks Rui himself, tighter than the airframe follows.
+    // Spotlight stays pinned to Rui, following tighter than the airframe.
     h.spotX += (t.x - h.spotX) * Math.min(1, dt * 6);
     h.spotZ += (t.z - h.spotZ) * Math.min(1, dt * 6);
   } else if (h.state === 'return') {
