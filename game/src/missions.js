@@ -20,7 +20,8 @@
 //   RAISE
 //   R1 Package lift witnessed (keeper/pedestrian within 15 m of the stall, or
 //      any police unit within 34 m): wanted := max(wanted, 2).
-//   R2 Hard ram (car-to-car impact > 7 with Rui involved, flagged by
+//   R2 Hard ram (car-to-car impact > 7 with Rui himself moving faster than
+//      3 m/s — being rammed while parked flags nothing — flagged by
 //      collideCars) against a POLICE unit while wanted >= 1:
 //      wanted := min(5, max(wanted + 1, 3)) — the first police ram therefore
 //      always lands on at least 3★. Guarded by a 5 s ram cooldown, so one

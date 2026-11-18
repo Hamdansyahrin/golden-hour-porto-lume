@@ -69,10 +69,13 @@ export function createMinimap(canvas) {
       for (const car of G.traffic) dot(px(car.x, cx), pz(car.z, cz), 2.6, '#cfd4d8');
       // The player's own car, when he is out of it.
       if (G.player.mode === 'foot') dot(px(G.playerCar.x, cx), pz(G.playerCar.z, cz), 3, '#37c8d8');
-      // Police: alternating blue/red like its light bar.
-      const cop = G.police;
-      dot(px(cop.x, cx), pz(cop.z, cz), 4, Math.floor(G.time * 2.4) % 2 ? '#3f7dff' : '#ff4030');
-      dot(px(cop.x, cx), pz(cop.z, cz), 1.8, '#ffffff');
+      // Police: one blip per unit, alternating blue/red like its light bar;
+      // standby units at their depots blink slower so the active response reads.
+      for (const cop of G.policeUnits) {
+        const blink = cop.active && G.wanted > 0 ? Math.floor(G.time * 2.4) % 2 : Math.floor(G.time * 0.8) % 2;
+        dot(px(cop.x, cx), pz(cop.z, cz), 4, blink ? '#3f7dff' : '#ff4030');
+        dot(px(cop.x, cx), pz(cop.z, cz), 1.8, '#ffffff');
+      }
       // Rui: a white arrow on his heading.
       ctx.translate(C, C);
       ctx.rotate(headingAngle(G.player.heading));

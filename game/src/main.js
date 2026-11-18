@@ -37,7 +37,7 @@ function paint() {
   dyn.clear();
   const flash = Math.floor(G.time * 2.4) % 2 === 0;
   for (const car of G.traffic) paintCar(dyn, car, flash);
-  paintCar(dyn, G.police, flash);
+  for (const cop of G.policeUnits) paintCar(dyn, cop, flash);
   paintCar(dyn, G.playerCar, flash);
   for (const ped of G.peds) paintPerson(dyn, ped);
   if (G.player.mode === 'foot') paintPerson(dyn, G.player);

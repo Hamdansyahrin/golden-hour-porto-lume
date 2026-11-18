@@ -191,7 +191,7 @@ export function updateTraffic(G, dt) {
 
 /** Resolve car-vs-car and car-vs-building bumps; flags hard hits by the player's car. */
 export function collideCars(G, dt) {
-  const all = [G.playerCar, ...G.traffic, G.police];
+  const all = [G.playerCar, ...G.traffic, ...G.policeUnits];
   for (const car of all) {
     const [nx, nz] = collide(G.colliders, car.x, car.z, 1.7);
     if (nx !== car.x || nz !== car.z) {
@@ -220,9 +220,12 @@ export function collideCars(G, dt) {
       // stopped cars are not pinned by the damping while the push separates them.
       const damp = impact > 4 ? 0.6 : 0.92;
       a.speed *= damp; c.speed *= damp;
-      if (impact > 7 && (a === G.playerCar || c === G.playerCar) && G.player.mode === 'car') {
-        // A hard ram by Rui: missions.js (CALOR rules R2/R3) needs to know WHAT he
-        // hit — a police unit escalates harder than a traffic car.
+      if (impact > 7 && (a === G.playerCar || c === G.playerCar) && G.player.mode === 'car'
+        && Math.abs(G.playerCar.speed) > 3) {
+        // A hard ram BY Rui: missions.js (CALOR rules R2/R3) needs to know WHAT he
+        // hit — a police unit escalates harder than a traffic car. Rui's own speed
+        // must be a real share of the impact: being rammed while parked (by the
+        // patrol arriving hot, or by traffic) is not his crime and flags nothing.
         G.bumpTimer = 0.001;
         const other = a === G.playerCar ? c : a;
         G.bumpKind = other.kind === 'police' ? 'police' : 'traffic';
@@ -276,37 +279,115 @@ export function refreshLOS(G, dt) {
 }
 
 /**
- * The PMPL patrol car. Wanted 0: it cruises the boulevard loop (or waits at its park spot
- * before the mission starts). Wanted > 0: it steers at the player and keeps the pressure
- * on — fast on straights, patient in turns, never quite teleporting onto the player.
+ * Street points a searching unit sweeps, in a fixed order: every junction of the
+ * road grid plus the landmark aprons. A unit entering SEARCH sorts these by
+ * distance to its last-known position (index breaks ties) and walks the list —
+ * deterministic, and biased to where Rui was actually seen last.
+ */
+export const SEARCH_POINTS = [
+  [20, 0], [-62, 0], [68, 0], [20, -48], [-62, -48], [68, -48],
+  [20, 38], [-62, 38], [68, 38], [0, 0], [0, -48], [0, 38],
+  [-27, 4.6], [55, 13.5], [-80, -34], [38, -60], [-28, 58],
+];
+
+/** Wanted level at which each unit joins (mirrors UNIT_JOIN_LEVEL in missions.js). */
+const JOIN_LEVEL = [0, 3, 3, 4];
+
+/** Drive one unit toward (tx, tz) at up to `cruise`, with P0's close-in easing. */
+function driveUnitTo(u, tx, tz, dt, cruise) {
+  const dist = Math.hypot(tx - u.x, tz - u.z);
+  steerToward(u, tx, tz, dt, 2.1);
+  let target = cruise;
+  if (dist < 6) target = Math.max(2.2, dist * 0.8);
+  if (dist > 45) target = cruise + 2.5;
+  u.speed += Math.max(-16 * dt, Math.min(9 * dt, target - u.speed));
+  moveCar(u, dt);
+  return dist;
+}
+
+/**
+ * The PMPL fleet's tactics (P1-B) — one small visible state machine per unit:
+ *   standby   parked at its depot, CALOR below its join level.
+ *   patrol    LUME-1 only, CALOR 0: the P0 boulevard cruise.
+ *   pursuit   steer at Rui (LOS) or at his last-known position (no LOS).
+ *   intercept LUME-3 at 4★+: steer at a point ahead of Rui's route instead.
+ *   search    no fresh last-known: sweep SEARCH_POINTS nearest-first.
+ *   roadblock 4★+: hold a placed blockade slot (see the roadblock section).
+ *   return    stand down to the depot (delivery cooldown, or CALOR dropped
+ *             below the unit's join level).
+ * Activation is purely CALOR-driven (JOIN_LEVEL); a unit that deactivates drives
+ * home rather than vanishing. Speeds are P0's pursuit numbers, so one unit feels
+ * exactly like the old patrol — the escalation is in numbers and tactics.
  */
 export function updatePolice(G, dt) {
   refreshLOS(G, dt);
-  const cop = G.police;
-  if (G.cooldownT > 0) {
-    // Standing down after a delivery: roll back to the park spot and wait.
-    const P = WORLD.policePark;
-    const d = Math.hypot(P.x - cop.x, P.z - cop.z);
-    if (d > 2) { steerToward(cop, P.x, P.z, dt, 1.8); cop.speed += Math.max(-12 * dt, Math.min(6 * dt, 7 - cop.speed)); }
-    else { cop.speed = 0; cop.heading += wrapAngle(P.heading - cop.heading) * Math.min(1, dt * 3); }
-    moveCar(cop, dt);
-    return;
+  const t = G.player.mode === 'car' ? G.playerCar : G.player;
+  for (const u of G.policeUnits) {
+    // LUME-1 is always on duty; the others join exactly at their CALOR level.
+    u.active = u.id === 0 || G.wanted >= JOIN_LEVEL[u.id];
+    u.pursuing = false;
+    if (G.cooldownT > 0 || !u.active) {
+      // Stand down: roll back to the depot and wait there.
+      const wasMode = u.mode;
+      u.mode = G.cooldownT > 0 || wasMode !== 'standby' ? 'return' : 'standby';
+      const d = Math.hypot(u.depot.x - u.x, u.depot.z - u.z);
+      if (d > 2) driveUnitTo(u, u.depot.x, u.depot.z, dt, 7.5);
+      else {
+        u.speed = 0;
+        u.heading += wrapAngle(u.depot.heading - u.heading) * Math.min(1, dt * 3);
+        u.mode = 'standby';
+        moveCar(u, dt);
+      }
+      continue;
+    }
+    if (G.wanted === 0) { // only LUME-1 reaches here: the P0 patrol
+      u.mode = 'patrol';
+      u.route = BOULEVARD_LOOP;
+      driveAlong(u, dt, 6.5);
+      continue;
+    }
+    if (u.holdT > 0) { // brief pause (e.g. just released from a roadblock)
+      u.holdT -= dt;
+      u.speed += Math.max(-16 * dt, Math.min(0, 0 - u.speed));
+      moveCar(u, dt);
+      continue;
+    }
+    // Choose the tactic for this step.
+    let aimX, aimZ, cruise;
+    if (u.hasLOS) {
+      u.searchList = null;
+      if (u.id === 2 && G.wanted >= 4) {
+        // Intercept: aim where Rui will be, not where he is — a point ahead of
+        // his heading, further ahead the further the unit has to travel.
+        u.mode = 'intercept';
+        const dist = Math.hypot(t.x - u.x, t.z - u.z);
+        const lead = Math.max(6, Math.min(26, dist * 0.55));
+        const [fx, fz] = forwardOf(t.heading);
+        aimX = t.x + fx * lead; aimZ = t.z + fz * lead;
+        cruise = 18.5;
+      } else {
+        u.mode = 'pursuit';
+        aimX = t.x; aimZ = t.z; cruise = 16.5;
+      }
+    } else if (u.lastKnownAge < 20 && Math.hypot(u.lastKnownX - u.x, u.lastKnownZ - u.z) > 4.5) {
+      u.mode = 'pursuit'; // to the last-known position, then SEARCH takes over
+      aimX = u.lastKnownX; aimZ = u.lastKnownZ; cruise = 15;
+    } else {
+      u.mode = 'search';
+      if (!u.searchList) {
+        u.searchList = SEARCH_POINTS
+          .map(([x, z], i) => ({ x, z, i, d: Math.hypot(x - u.lastKnownX, z - u.lastKnownZ) }))
+          .sort((a, b) => (a.d - b.d) || (a.i - b.i));
+        u.searchPtr = 0;
+      }
+      const sp = u.searchList[u.searchPtr % u.searchList.length];
+      aimX = sp.x; aimZ = sp.z; cruise = 9.5;
+      if (Math.hypot(sp.x - u.x, sp.z - u.z) < 5) u.searchPtr += 1;
+    }
+    driveUnitTo(u, aimX, aimZ, dt, cruise);
+    u.pursuing = u.mode === 'pursuit' || u.mode === 'intercept';
   }
-  if (G.wanted > 0) {
-    const t = G.player.mode === 'car' ? G.playerCar : G.player;
-    const dist = Math.hypot(t.x - cop.x, t.z - cop.z);
-    steerToward(cop, t.x, t.z, dt, 2.1);
-    let target = 16.5;
-    if (dist < 6) target = Math.max(2.5, dist * 0.8); // close in, then hold contact range
-    if (dist > 45) target = 19;
-    cop.speed += Math.max(-16 * dt, Math.min(9 * dt, target - cop.speed));
-    moveCar(cop, dt);
-    cop.pursuing = true;
-  } else {
-    cop.pursuing = false;
-    cop.route = BOULEVARD_LOOP;
-    driveAlong(cop, dt, 6.5);
-  }
+  G.police.pursuing = G.policeUnits[0].pursuing;
 }
 
 // ------------------------------------------------------------------ pedestrians
@@ -316,7 +397,7 @@ export function updatePeds(G, dt) {
     if (ped.stationary) { ped.walkPhase += dt * 0; continue; }
     // Threat check: a fast car close by, or a fresh crime witnessed up close.
     let threat = null;
-    for (const car of [G.playerCar, ...G.traffic, G.police]) {
+    for (const car of [G.playerCar, ...G.traffic, ...G.policeUnits]) {
       if (Math.abs(car.speed) < 8) continue;
       const d = Math.hypot(car.x - ped.x, car.z - ped.z);
       if (d < 7.5) { threat = car; break; }

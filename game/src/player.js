@@ -73,7 +73,7 @@ function findExitSpot(G, car) {
     const [cx, cz] = collide(G.colliders, tx, tz, 0.45);
     if (Math.hypot(cx - tx, cz - tz) > 0.01) continue; // a building would shove him
     let clear = true;
-    for (const other of [G.playerCar, ...G.traffic, G.police]) {
+    for (const other of [G.playerCar, ...G.traffic, ...G.policeUnits]) {
       if (other !== car && Math.hypot(other.x - tx, other.z - tz) < 2.2) { clear = false; break; }
     }
     if (clear) return [tx, tz];
