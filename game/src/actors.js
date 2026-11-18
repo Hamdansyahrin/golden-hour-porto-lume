@@ -3,7 +3,7 @@
 // car and the sidewalk pedestrians behave. Rui himself is controlled from player.js; this
 // module only paints him.
 
-import { WORLD, collide, clampWorld, forwardOf, headingTo, wrapAngle, losBlocked } from './city.js';
+import { WORLD, ROAD_BANDS, collide, clampWorld, forwardOf, headingTo, wrapAngle, losBlocked } from './city.js';
 
 const DARK = [0.1, 0.1, 0.12];
 const GLASS = [0.13, 0.2, 0.3];
@@ -293,10 +293,149 @@ export const SEARCH_POINTS = [
 /** Wanted level at which each unit joins (mirrors UNIT_JOIN_LEVEL in missions.js). */
 const JOIN_LEVEL = [0, 3, 3, 4];
 
+// ------------------------------------------------------------------ roadblock
+
+/** The two units on roadblock duty at 4★+ (LUME-3 keeps the intercept role). */
+const BLOCKER_IDS = [1, 3];
+
+/**
+ * Place a roadblock (P1-B): two police cars parked nose-to-tail ACROSS the road
+ * ~30 m ahead of Rui, on whichever road band (horizontal or vertical) that point
+ * is nearest to. Deterministic: the centre is a pure function of Rui's position
+ * and heading, snapped to the road grid; the one tie-break — which side of the
+ * road keeps the wider drive-around gap — is a fixed integer hash of the
+ * quantized centre, so the same approach always builds the same blockade.
+ * The cars are ordinary collideCars bodies: Rui can ram through (they push and
+ * dent his speed, no hard wall) or slip around the widened edge gap.
+ */
+export function placeRoadblock(G, t) {
+  const rb = G.roadblock;
+  const [fx, fz] = forwardOf(t.heading);
+  const ax = t.x + fx * 30, az = t.z + fz * 30;
+  let bestH = null, bestHd = Infinity;
+  for (const b of ROAD_BANDS.h) { const d = Math.abs(az - b.z); if (d < bestHd) { bestHd = d; bestH = b; } }
+  let bestV = null, bestVd = Infinity;
+  for (const b of ROAD_BANDS.v) { const d = Math.abs(ax - b.x); if (d < bestVd) { bestVd = d; bestV = b; } }
+  rb.horiz = bestHd <= bestVd;
+  if (rb.horiz) { rb.cx = ax; rb.cz = bestH.z; } else { rb.cx = bestV.x; rb.cz = az; }
+  const [ccx, ccz] = clampWorld(rb.cx, rb.cz);
+  rb.cx = ccx; rb.cz = ccz;
+  const qx = Math.round(rb.cx / 6), qz = Math.round(rb.cz / 6);
+  const hash = ((qx * 73856093) ^ (qz * 19349663)) >>> 0;
+  rb.gap = (hash % 2 === 0 ? 1 : -1) * 1.5;
+  rb.slots = rb.horiz
+    ? [{ x: rb.cx, z: rb.cz - 2.4 + rb.gap, h: 0 }, { x: rb.cx, z: rb.cz + 2.4 + rb.gap, h: 0 }]
+    : [{ x: rb.cx - 2.4 + rb.gap, z: rb.cz, h: Math.PI / 2 }, { x: rb.cx + 2.4 + rb.gap, z: rb.cz, h: Math.PI / 2 }];
+  rb.active = true;
+  rb.age = 0;
+  rb.minDist = Infinity;
+  BLOCKER_IDS.forEach((id, i) => {
+    const u = G.policeUnits[id];
+    u.mode = 'roadblock';
+    u.slotX = rb.slots[i].x; u.slotZ = rb.slots[i].z; u.slotHeading = rb.slots[i].h;
+    u.searchList = null;
+  });
+}
+
+function releaseRoadblock(G, cooldown) {
+  const rb = G.roadblock;
+  rb.active = false;
+  rb.slots = null;
+  rb.cooldownT = cooldown;
+  for (const id of BLOCKER_IDS) {
+    const u = G.policeUnits[id];
+    if (u.mode === 'roadblock') { u.mode = 'pursuit'; u.holdT = 1.2; } // a breath, then chase
+  }
+}
+
+/**
+ * Roadblock lifecycle, stepped once per frame from updatePolice. Placement needs
+ * 4★+, a fresh sighting (or a last-known under 3 s old) and an expired placement
+ * cooldown. Release — the no-soft-lock guarantee — happens when Rui has been
+ * through or past the blockade and is clear beyond it, when he gives the area a
+ * wide berth for a few seconds (went around), when the block never engages for
+ * 25 s, or when CALOR drops below 4★ / the delivery stand-down begins.
+ */
+export function updateRoadblock(G, dt) {
+  const rb = G.roadblock;
+  if (rb.cooldownT > 0) rb.cooldownT -= dt;
+  const t = G.player.mode === 'car' ? G.playerCar : G.player;
+  if (rb.active) {
+    rb.age += dt;
+    const d = Math.hypot(t.x - rb.cx, t.z - rb.cz);
+    if (d < rb.minDist) rb.minDist = d;
+    const passed = rb.minDist < 7 && d > 16;
+    const around = rb.age > 4 && d > 36;
+    const stale = rb.age > 25;
+    if (passed || around || stale || G.wanted < 4 || G.cooldownT > 0) {
+      releaseRoadblock(G, passed || around ? 7 : 4);
+    }
+    return;
+  }
+  if (G.wanted >= 4 && G.cooldownT <= 0 && rb.cooldownT <= 0) {
+    let fresh = false;
+    for (const u of G.policeUnits) if (u.active && (u.hasLOS || u.lastKnownAge < 3)) { fresh = true; break; }
+    if (fresh) placeRoadblock(G, t);
+  }
+}
+
+/**
+ * Drive one blocker to its slot, then stop and square up across the road. The
+ * approach runs along the road, not across it: first to the corridor point in
+ * the driving lane on the slot's side of the road (same along-road coordinate
+ * as the slot), then the short lateral step into the slot itself. A raw
+ * beeline from across town crosses junction furniture — the festival stall row
+ * stands in the boulevard's median at Rua das Flores, and a blocker sent
+ * straight at its slot pins against a stall forever (the sim caught exactly
+ * that); the lane corridor passes the same stall with the lane's own clearance.
+ */
+function driveRoadblockUnit(G, u, dt) {
+  const rb = G.roadblock;
+  const d = Math.hypot(u.slotX - u.x, u.slotZ - u.z);
+  if (d <= 1.4) {
+    u.speed += Math.max(-16 * dt, Math.min(0, 0 - u.speed));
+    u.heading += wrapAngle(u.slotHeading - u.heading) * Math.min(1, dt * 4);
+    moveCar(u, dt);
+    u.pursuing = false;
+    return;
+  }
+  let aimX = u.slotX, aimZ = u.slotZ;
+  if (rb.horiz) {
+    const laneZ = rb.cz + (u.slotZ >= rb.cz ? 3.6 : -3.6);
+    if (Math.hypot(u.slotX - u.x, laneZ - u.z) > 2) { aimX = u.slotX; aimZ = laneZ; }
+  } else {
+    const laneX = rb.cx + (u.slotX >= rb.cx ? 3.6 : -3.6);
+    if (Math.hypot(laneX - u.x, u.slotZ - u.z) > 2) { aimX = laneX; aimZ = u.slotZ; }
+  }
+  driveUnitTo(u, aimX, aimZ, dt, 15);
+  u.pursuing = false;
+}
+
 /** Drive one unit toward (tx, tz) at up to `cruise`, with P0's close-in easing. */
 function driveUnitTo(u, tx, tz, dt, cruise) {
   const dist = Math.hypot(tx - u.x, tz - u.z);
-  steerToward(u, tx, tz, dt, 2.1);
+  // Anti-pin detour: a beeline unit shoved flat against a collider face (a stall
+  // at a junction, a building corner) is pushed straight back by collide() and
+  // would lean there forever — its speed still reads ~2 m/s, so the pin is
+  // detected by DISPLACEMENT: position sampled every 0.5 s, and if the unit
+  // moved less than 0.4 m in a sample while still far from its target, it
+  // breaks sideways for a moment — to its right for even unit ids, to its left
+  // for odd ones, so two pinned units never mirror each other into the same
+  // wall. Deterministic: id parity only, no randomness.
+  u.pinT += dt;
+  if (u.pinT >= 0.5) {
+    const moved = Math.hypot(u.x - u.pinX, u.z - u.pinZ);
+    if (moved < 0.4 && dist > 4 && !(u.detourT > 0)) u.detourT = 1.3;
+    u.pinX = u.x; u.pinZ = u.z; u.pinT = 0;
+  }
+  let aimX = tx, aimZ = tz;
+  if (u.detourT > 0) {
+    u.detourT -= dt;
+    const side = u.id % 2 === 0 ? 1 : -1;
+    aimX = u.x + Math.cos(u.heading) * side * 8;
+    aimZ = u.z + Math.sin(u.heading) * side * 8;
+  }
+  steerToward(u, aimX, aimZ, dt, 2.1);
   let target = cruise;
   if (dist < 6) target = Math.max(2.2, dist * 0.8);
   if (dist > 45) target = cruise + 2.5;
@@ -321,6 +460,7 @@ function driveUnitTo(u, tx, tz, dt, cruise) {
  */
 export function updatePolice(G, dt) {
   refreshLOS(G, dt);
+  updateRoadblock(G, dt);
   const t = G.player.mode === 'car' ? G.playerCar : G.player;
   for (const u of G.policeUnits) {
     // LUME-1 is always on duty; the others join exactly at their CALOR level.
@@ -352,6 +492,7 @@ export function updatePolice(G, dt) {
       moveCar(u, dt);
       continue;
     }
+    if (u.mode === 'roadblock' && G.roadblock.active) { driveRoadblockUnit(G, u, dt); continue; }
     // Choose the tactic for this step.
     let aimX, aimZ, cruise;
     if (u.hasLOS) {

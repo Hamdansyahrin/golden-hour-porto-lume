@@ -145,6 +145,7 @@ export function createGameState(colliders) {
     hasLOS: false, losT: i * 0.06, unseenSec: 0,
     lastKnownX: d.x, lastKnownZ: d.z, lastKnownAge: 999,
     searchIdx: i, searchT: 0, holdT: 0, slotX: 0, slotZ: 0, slotHeading: 0,
+    detourT: 0, pinT: 0, pinX: d.x, pinZ: d.z,
   }));
   const police = policeUnits[0]; // legacy alias: LUME-1 is "the" patrol of P0/P1-A code
   const all = [playerCar, ...traffic, ...policeUnits];
