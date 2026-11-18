@@ -1,53 +1,59 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Keyboard and mouse input for Golden Hour. Held keys are read as a state snapshot each
+// frame; one-shot presses (interact, confirm) are latched until the game takes them, so a
+// tap between two frames is never lost and never counted twice. Dragging the mouse orbits
+// the chase camera around Rui or his car.
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+const HELD = {
+  forward: ['KeyW', 'ArrowUp'],
+  back: ['KeyS', 'ArrowDown'],
+  left: ['KeyA', 'ArrowLeft'],
+  right: ['KeyD', 'ArrowRight'],
+  run: ['ShiftLeft', 'ShiftRight'],
+};
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
-
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+export function createInput(canvas) {
+  const down = new Set();
+  let interactQueued = false;
+  let confirmQueued = false;
+  let dragging = false;
+  let lastX = 0;
+  let orbitDelta = 0;
 
   window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
+    if (event.code === 'KeyE' && !event.repeat) interactQueued = true;
+    if ((event.code === 'Enter' || event.code === 'Space') && !event.repeat) confirmQueued = true;
+    down.add(event.code);
+    if (event.code.startsWith('Arrow') || event.code === 'Space') event.preventDefault();
   });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
+  window.addEventListener('keyup', (event) => { down.delete(event.code); });
+  window.addEventListener('blur', () => { down.clear(); dragging = false; });
+
+  canvas.addEventListener('pointerdown', (event) => {
+    dragging = true;
+    lastX = event.clientX;
+    confirmQueued = true;
   });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
-  window.addEventListener('blur', () => {
-    left = false;
-    right = false;
+  window.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    orbitDelta += (event.clientX - lastX) * 0.005;
+    lastX = event.clientX;
   });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
-  });
+  window.addEventListener('pointerup', () => { dragging = false; });
+
+  const any = (codes) => codes.some((c) => down.has(c));
 
   return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
-    },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
-    },
+    forward() { return any(HELD.forward); },
+    back() { return any(HELD.back); },
+    left() { return any(HELD.left); },
+    right() { return any(HELD.right); },
+    run() { return any(HELD.run); },
+    /** Steering as -1 (left), 0 or 1 (right). */
+    steer() { return (any(HELD.right) ? 1 : 0) - (any(HELD.left) ? 1 : 0); },
+    /** Throttle axis as -1 (reverse/brake), 0 or 1 (accelerate). */
+    throttle() { return (any(HELD.forward) ? 1 : 0) - (any(HELD.back) ? 1 : 0); },
+    takeInteract() { const v = interactQueued; interactQueued = false; return v; },
+    takeConfirm() { const v = confirmQueued; confirmQueued = false; return v; },
+    takeOrbit() { const v = orbitDelta; orbitDelta = 0; return v; },
   };
 }
