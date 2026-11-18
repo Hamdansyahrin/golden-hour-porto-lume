@@ -535,9 +535,10 @@ export function updatePolice(G, dt) {
 
 /**
  * ÁGUIA-1, the PMPL helicopter (P1-B). Parked on the Farol apron until CALOR 5★
- * (or a staged shot's `forced` flag) calls it up; then it climbs to a 28 m hover
- * offset behind/above Rui and lerps to stay over his area, spotlight pinned to
- * him. When CALOR falls it flies home and lands — it never pops in or out.
+ * (or a staged shot's `forced` flag) calls it up; then it climbs to a 26 m hover
+ * ahead of Rui and off his left shoulder and lerps to stay over his area,
+ * spotlight pinned to him. When CALOR falls it flies home and lands — it never
+ * pops in or out.
  * All motion derives from game state and the fixed step: the rotor phase is
  * sim time only, no clock, no randomness.
  */
@@ -551,8 +552,18 @@ export function updateHeli(G, dt) {
 
   let tx, ty, tz, rate;
   if (h.state === 'active') {
+    // On station AHEAD of Rui and off his left shoulder: 12 m ahead, 6 m to the
+    // side, 26 m up. The first P1-B cut hovered 7 m BEHIND him at 28 m, so in
+    // real play the airframe only ever sat behind the chase camera and its
+    // spotlight raked in from behind; ahead and to the side, ÁGUIA-1 holds
+    // station over the road Rui is driving into, its cone and light pool in
+    // his forward view. (cos h, sin h) is the heading's right vector, so
+    // subtracting it puts the heli on his left — the Farol side of a westbound
+    // run down the boulevard.
     const [fx, fz] = forwardOf(t.heading);
-    tx = t.x - fx * 7; tz = t.z - fz * 7; ty = 28; rate = 1.7;
+    tx = t.x + fx * 12 - Math.cos(t.heading) * 6;
+    tz = t.z + fz * 12 - Math.sin(t.heading) * 6;
+    ty = 26; rate = 1.7;
     // The spotlight tracks Rui himself, tighter than the airframe follows.
     h.spotX += (t.x - h.spotX) * Math.min(1, dt * 6);
     h.spotZ += (t.z - h.spotZ) * Math.min(1, dt * 6);
@@ -593,9 +604,12 @@ export function updateHeli(G, dt) {
  * band and a gold callsign block on the tail (the engine has no textures, so the
  * identification is livery markings, not lettering), spinning main rotor (two
  * crossed blades), tail rotor with an orbiting tip, skids, and — while active —
- * the spotlight: a pale emissive cone drawn as alternating segments (the gaps
- * let the city show through, which reads as translucency in a renderer with no
- * alpha) plus a bright ground disc under Rui.
+ * the spotlight: a dim emissive cone drawn as sparse segments — one panel in
+ * four around the cone, so three-quarters of the surface is open gap and the
+ * city shows through (that is what reads as translucency in a renderer with no
+ * alpha; the first P1-B cut drew every other panel at full brightness and the
+ * cone photographed as a solid white sail) — plus a bright ground disc under
+ * Rui. One paint path serves the staged cover and live play alike.
  */
 export function paintHeli(b, heli) {
   const { x, z } = heli;
@@ -635,19 +649,19 @@ export function paintHeli(b, heli) {
   // Spotlight cone + ground disc while on station.
   if (heli.active) {
     const apex = [x, y - 0.8, z];
-    const seg = 8, R = 3.1;
-    for (let i = 0; i < seg; i += 2) { // alternating segments: see-through beam
+    const seg = 16, R = 3.1;
+    for (let i = 0; i < seg; i += 4) { // sparse panels: 4 of 16, a beam not a sail
       const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
       const p0 = [heli.spotX + Math.cos(a0) * R, 0.15, heli.spotZ + Math.sin(a0) * R];
       const p1 = [heli.spotX + Math.cos(a1) * R, 0.15, heli.spotZ + Math.sin(a1) * R];
-      b.tri(apex, p0, p1, [0, 1, 0], [1, 0.92, 0.65], 1);
+      b.tri(apex, p0, p1, [0, 1, 0], [0.55, 0.5, 0.36], 1);
     }
     for (let i = 0; i < 10; i++) {
       const a0 = (i / 10) * Math.PI * 2, a1 = ((i + 1) / 10) * Math.PI * 2;
       b.tri([heli.spotX, 0.07, heli.spotZ],
-        [heli.spotX + Math.cos(a0) * 3.4, 0.07, heli.spotZ + Math.sin(a0) * 3.4],
-        [heli.spotX + Math.cos(a1) * 3.4, 0.07, heli.spotZ + Math.sin(a1) * 3.4],
-        [0, 1, 0], [1, 0.94, 0.7], 1);
+        [heli.spotX + Math.cos(a0) * 3.0, 0.07, heli.spotZ + Math.sin(a0) * 3.0],
+        [heli.spotX + Math.cos(a1) * 3.0, 0.07, heli.spotZ + Math.sin(a1) * 3.0],
+        [0, 1, 0], [0.85, 0.77, 0.52], 1);
     }
   }
 }
