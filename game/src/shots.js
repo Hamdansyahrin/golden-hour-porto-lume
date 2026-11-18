@@ -70,7 +70,12 @@ function stageBoxin(G, step) {
   // The patrol angled in front of the Vela's nose, lights on.
   placeCar(G.police, 13.5, 1.2, -Math.PI / 2 - 0.62, 0);
   // Traffic: one car held behind Rui, one coming the other way, one up the side street.
-  placeCar(G.traffic[0], -8, 3.6, -Math.PI / 2, 0);
+  // (P1-C recomposition, measured with the engine's own projection: the held car
+  // used to sit at x=-8, BEHIND the old camera at x=-4.6 — claimed in this
+  // comment, invisible in the frame. It now waits at x=-2.5 and the camera
+  // pulls back to x=-7.5, so it reads as a foreground layer lower-left while
+  // the Vela/LUME-1 pair keeps its centred confrontation.)
+  placeCar(G.traffic[0], -2.5, 3.6, -Math.PI / 2, 0);
   placeCar(G.traffic[1], 30, -3.6, Math.PI / 2, 5);
   placeCar(G.traffic[2], 17.6, -14, Math.PI, 4);
   placeCar(G.traffic[3], -20, -3.6, Math.PI / 2, 6);
@@ -92,7 +97,7 @@ function stageBoxin(G, step) {
   G.player.mode = 'car'; G.player.x = 6; G.player.z = 3.6;
   G.dialogue = { who: 'Inspetora Quintela (rádio PMPL)', text: '“Fecha a avenida. O Vela é nosso — LUME-1 a bloquear.”', until: 1e9 };
   G.seen = true;
-  setCameraLook(G, -4.6, 3.3, 5.2, 11, 1.0, 2.0);
+  setCameraLook(G, -7.5, 3.4, 6.2, 11.5, 0.9, 1.8);
 }
 
 // SHOT 4 — the roadblock: Rui's Vela eastbound on the boulevard at 4 stars, LUME-2 and
@@ -107,8 +112,15 @@ function stageRoadblock(G, step) {
   G.player.mode = 'car';
   placeCar(G.playerCar, 0, 3.6, -Math.PI / 2, 6);
   G.player.x = 0; G.player.z = 3.6; G.player.heading = -Math.PI / 2;
-  placeCar(G.policeUnits[0], -13, 3.6, -Math.PI / 2, 5);
-  placeCar(G.policeUnits[2], -19, -3.6, -Math.PI / 2, 6);
+  // P1-C recomposition (measured, engine projection): both chasers used to sit
+  // at x=-13/-19, behind or beside the old camera at x=-9 — the "closing in
+  // behind" this shot promises was never in the frame. LUME-1 now runs 8 m
+  // behind Rui in his lane and LUME-3 cuts across the oncoming lane 4 m back,
+  // and the camera pulls to (-14, 4.2, 7): NDC puts LUME-1 lower-left
+  // foreground (-0.38, -0.78), LUME-3 at the left edge (-0.82, -0.38), the
+  // Vela low-centre and the blockade on the vanishing point.
+  placeCar(G.policeUnits[0], -8, 3.6, -Math.PI / 2, 5);
+  placeCar(G.policeUnits[2], -4, -3.6, -Math.PI / 2, 6);
   // The real placement: centre (30, 0) on the boulevard, blockers assigned.
   placeRoadblock(G, G.playerCar);
   for (const id of [1, 3]) {
@@ -127,8 +139,8 @@ function stageRoadblock(G, step) {
   settle(G, step, 0.35);
   // Re-pin the principals after the settle so the frame is exact.
   placeCar(G.playerCar, 0, 3.6, -Math.PI / 2, 6);
-  placeCar(G.policeUnits[0], -13, 3.6, -Math.PI / 2, 5);
-  placeCar(G.policeUnits[2], -19, -3.6, -Math.PI / 2, 6);
+  placeCar(G.policeUnits[0], -8, 3.6, -Math.PI / 2, 5);
+  placeCar(G.policeUnits[2], -4, -3.6, -Math.PI / 2, 6);
   placeRoadblock(G, G.playerCar);
   for (const id of [1, 3]) {
     const u = G.policeUnits[id];
@@ -138,7 +150,7 @@ function stageRoadblock(G, step) {
   G.player.mode = 'car'; G.player.x = 0; G.player.z = 3.6;
   G.dialogue = { who: 'Inspetora Quintela (rádio PMPL)', text: '“Bloqueio formado na avenida. Ele que tente passar — LUME-2, LUME-4, aguentem.”', until: 1e9 };
   G.seen = true;
-  setCameraLook(G, -9, 3.4, 7.5, 26, 1.0, -0.5);
+  setCameraLook(G, -14, 4.2, 7.0, 27, 0.9, -0.5);
 }
 
 // SHOT 5 — the P1-B cover candidate, Porto Lume's own composition: Rui westbound
@@ -264,5 +276,9 @@ function stageDeliver(G, step) {
   G.player.x = 51.5; G.player.z = 10.8; G.player.heading = Math.PI * 0.15;
   G.stage = STAGE.FREE; G.money = 570; G.wanted = 0; G.cooldownT = 3;
   G.screen = 'done';
-  setCameraLook(G, 37.5, 4.6, -1.5, 57, 1.2, 12.5);
+  // P1-C recomposition (measured): the old camera stood 19–24 m from every
+  // subject, all clustered at the centre at postcard size. Five metres closer
+  // and a step lower, Rui sits right of centre (NDC x 0.16), the Vela left
+  // (-0.23) and the garage door between them — same story, larger in frame.
+  setCameraLook(G, 42, 4.2, -0.5, 56, 1.1, 12);
 }
