@@ -87,6 +87,36 @@ export const BOULEVARD_LOOP = [
 export const SIDE_LOOP = [
   [17.6, 34], [17.6, -52], [20, -56], [22.4, -52], [22.4, 34], [20, 38],
 ];
+// P1-A loops on the expanded grid. Lane convention matches the P0 loops everywhere:
+// eastbound traffic rides the south lane of an east–west road, westbound the north
+// lane, northbound the west lane of a north–south street, southbound the east lane —
+// so cars on the same road in opposite directions never share a lane, and every loop
+// below is a closed circuit with a corner waypoint at each intersection centre.
+// Boulevard → east street → Rua do Relógio → Rua das Flores.
+export const NORTH_LOOP = [
+  [24, 3.6], [64, 3.6], [68, 0], [65.4, -5], [65.4, -43], [68, -48],
+  [64, -51], [24, -51], [20, -48], [22.4, -43], [22.4, -5], [20, 0],
+];
+// Boulevard → Rua das Flores → Rua das Docas → east street.
+export const SOUTH_LOOP = [
+  [64, -3.6], [24, -3.6], [20, 0], [22.4, 5], [22.4, 33], [20, 38],
+  [24, 41], [64, 41], [68, 38], [65.4, 33], [65.4, 5], [68, 0],
+];
+// West street → Rua do Relógio → Rua das Flores → boulevard.
+export const WEST_LOOP = [
+  [-64.6, -5], [-64.6, -43], [-62, -48], [-58, -45], [16, -45], [20, -48],
+  [22.4, -43], [22.4, -5], [20, 0], [16, -3.6], [-58, -3.6], [-62, 0],
+];
+// The outer perimeter: Rua das Docas → east street → Rua do Relógio → west street.
+export const OUTER_LOOP = [
+  [-58, 41], [64, 41], [68, 38], [65.4, 33], [65.4, -43], [68, -48],
+  [64, -51], [-58, -51], [-62, -48], [-59.4, -43], [-59.4, 33], [-62, 38],
+];
+// Boulevard → west street → Rua das Docas → Rua das Flores.
+export const DOCAS_LOOP = [
+  [16, -3.6], [-58, -3.6], [-62, 0], [-59.4, 5], [-59.4, 33], [-62, 38],
+  [-58, 41], [16, 41], [20, 38], [17.6, 33], [17.6, 5], [20, 0],
+];
 
 function steerToward(car, tx, tz, dt, turnRate) {
   const want = headingTo(tx - car.x, tz - car.z);
@@ -102,15 +132,47 @@ function driveAlong(car, dt, cruise) {
   if (dist < 4) { car.wp = (car.wp + 1) % car.route.length; return; }
   const diff = steerToward(car, tx, tz, dt, 1.6);
   let target = cruise * Math.max(0.35, 1 - diff * 0.55);
-  // Crude car-following: ease off when something is just ahead.
+  // Car-following and intersection courtesy, both keyed on the shared neighbours
+  // order (the player's car first, then traffic, then the patrol):
+  //  - Same-direction traffic just ahead: ease off and keep a gap (as P0 did).
+  //  - Crossing traffic in my path: yield — but only to a car EARLIER in the order.
+  //    Exactly one car of any crossing pair therefore proceeds while the other waits
+  //    clear of contact, which is what keeps the grid deadlock-free: treating every
+  //    perpendicular car as "ahead" (P0's rule, fine for 5 cars on 2 loops) makes
+  //    two cars stop for each other forever once 13 cars share 7 loops, and letting
+  //    both drive in pins them in collideCars' push-apart, whose push direction is
+  //    exactly backwards for both. The player's car is first in the order, so
+  //    traffic always yields to Rui — he has priority at every junction.
+  const [mfx, mfz] = forwardOf(car.heading);
+  const myIdx = car.neighbours.indexOf(car);
+  let blocked = false;
+  let blockerMoving = false;
   for (const other of car.neighbours) {
     if (other === car) continue;
     const dx = other.x - car.x, dz = other.z - car.z;
-    const ahead = dx * -Math.sin(car.heading) + dz * Math.cos(car.heading);
-    const side = Math.abs(dx * Math.cos(car.heading) + dz * Math.sin(car.heading));
+    const ahead = dx * mfx + dz * mfz;
+    const side = Math.abs(dx * mfz - dz * mfx); // lateral offset along the right vector
     const d = Math.hypot(dx, dz);
-    if (ahead > 0 && side < 2.2 && d < 8) target = Math.min(target, Math.max(0, (d - 4.5) * 1.6));
+    if (ahead <= 0 || d >= 8) continue;
+    const [ofx, ofz] = forwardOf(other.heading);
+    if (mfx * ofx + mfz * ofz >= 0.5) {
+      if (side < 2.2) {
+        target = Math.min(target, Math.max(0, (d - 4.5) * 1.6));
+        blocked = true;
+        if (Math.abs(other.speed) > 1) blockerMoving = true;
+      }
+    } else if (side < 2.6 && d < 6.5 && car.neighbours.indexOf(other) < myIdx) {
+      target = Math.min(target, Math.max(0, (d - 4.2) * 1.6));
+      blocked = true;
+      if (Math.abs(other.speed) > 1) blockerMoving = true;
+    }
   }
+  // Stall breaker: a car held at a standstill for seconds while nothing ahead of it
+  // is moving creeps forward slowly until the blockage clears, so a freak queue can
+  // never freeze the city permanently. It never creeps into moving traffic.
+  if (car.speed < 0.4 && target < 0.5 && blocked) car.stallT = (car.stallT ?? 0) + dt;
+  else if (car.speed >= 0.4) car.stallT = 0;
+  if ((car.stallT ?? 0) > 5 && !blockerMoving) target = Math.max(target, 2.2);
   car.speed += Math.max(-14 * dt, Math.min(7 * dt, target - car.speed));
   moveCar(car, dt);
 }
@@ -132,7 +194,17 @@ export function collideCars(G, dt) {
   const all = [G.playerCar, ...G.traffic, G.police];
   for (const car of all) {
     const [nx, nz] = collide(G.colliders, car.x, car.z, 1.7);
-    if (nx !== car.x || nz !== car.z) { car.x = nx; car.z = nz; car.speed *= 0.55; }
+    if (nx !== car.x || nz !== car.z) {
+      car.x = nx; car.z = nz;
+      // Only the player's car loses speed against buildings (a crash should cost
+      // Rui momentum). Traffic and the patrol get the positional push-out alone:
+      // damping their speed every frame while they touch a collider pins them at
+      // ~0.1 m/s against any face a junction scrum shoves them onto (the P1-A soak
+      // caught boulevard cars frozen against a festival stall for minutes), while
+      // with push-out alone their waypoint steering slides them around the corner
+      // and free within seconds.
+      if (car === G.playerCar) car.speed *= 0.55;
+    }
   }
   for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
     const a = all[i], c = all[j];
@@ -144,7 +216,10 @@ export function collideCars(G, dt) {
       a.x -= ux * push; a.z -= uz * push;
       c.x += ux * push; c.z += uz * push;
       const impact = Math.abs(a.speed) + Math.abs(c.speed);
-      a.speed *= 0.6; c.speed *= 0.6;
+      // Hard contact costs speed; a gentle touch in a queue barely does, so two
+      // stopped cars are not pinned by the damping while the push separates them.
+      const damp = impact > 4 ? 0.6 : 0.92;
+      a.speed *= damp; c.speed *= damp;
       if (impact > 7 && (a === G.playerCar || c === G.playerCar) && G.player.mode === 'car') G.bumpTimer = 0.001;
     }
   }

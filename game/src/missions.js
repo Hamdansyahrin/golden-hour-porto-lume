@@ -5,9 +5,9 @@
 // pursuit, and falls only while nobody can see Rui. If the patrol car holds contact
 // with a slow Rui for three seconds, he is detained and the job resets to the stall.
 
-import { WORLD } from './city.js';
+import { WORLD, headingTo } from './city.js';
 import { createRng } from './random.js';
-import { BOULEVARD_LOOP, SIDE_LOOP } from './actors.js';
+import { BOULEVARD_LOOP, SIDE_LOOP, NORTH_LOOP, SOUTH_LOOP, WEST_LOOP, OUTER_LOOP, DOCAS_LOOP } from './actors.js';
 
 export const STAGE = { GO: 1, DELIVER: 2, FREE: 4 };
 export const PAYMENT = 450;
@@ -22,6 +22,21 @@ const TRAFFIC_PAINT = [
   { body: [0.92, 0.75, 0.25], name: 'Táxi Lume', taxi: true },
   { body: [0.85, 0.85, 0.82], name: 'Furgão Brisa', van: true },
   { body: [0.35, 0.6, 0.45], name: 'Ondina' },
+  { body: [0.92, 0.75, 0.25], name: 'Táxi Lume', taxi: true },
+  { body: [0.88, 0.82, 0.7], name: 'Ondina' },
+  { body: [0.7, 0.72, 0.75], name: 'Furgão Brisa', van: true },
+  { body: [0.2, 0.55, 0.6], name: 'Ondina' },
+  { body: [0.92, 0.75, 0.25], name: 'Táxi Lume', taxi: true },
+  { body: [0.55, 0.4, 0.65], name: 'Ondina' },
+  { body: [0.8, 0.8, 0.78], name: 'Furgão Brisa', van: true },
+  { body: [0.85, 0.5, 0.25], name: 'Ondina' },
+];
+// One route per car, in paint order: the P0 five keep their P0 routes, the P1-A cars
+// take the new loops so every street in the grid carries traffic.
+const TRAFFIC_ROUTES = [
+  BOULEVARD_LOOP, BOULEVARD_LOOP, SIDE_LOOP, BOULEVARD_LOOP, SIDE_LOOP,
+  NORTH_LOOP, NORTH_LOOP, SOUTH_LOOP, SOUTH_LOOP, WEST_LOOP,
+  OUTER_LOOP, OUTER_LOOP, DOCAS_LOOP,
 ];
 
 function makePed(rng, path, wp, opts = {}) {
@@ -42,16 +57,20 @@ export function createGameState(colliders) {
     kind: 'player', name: 'Vela Sprint', body: [0.12, 0.55, 0.6], cabin: [0.1, 0.16, 0.22],
     route: BOULEVARD_LOOP, wp: 0, cruise: 0, neighbours: [],
   };
+  // Hand-staggered start waypoints (index into each car's route): no two cars share a
+  // start point, and cars sharing a route start far apart on it.
+  const TRAFFIC_START_WP = [0, 3, 1, 4, 4, 1, 6, 2, 7, 1, 8, 3, 5];
   const traffic = [];
-  const routes = [BOULEVARD_LOOP, BOULEVARD_LOOP, SIDE_LOOP, BOULEVARD_LOOP, SIDE_LOOP];
-  for (let i = 0; i < 5; i++) {
-    const route = routes[i];
-    const wp = (i * 2) % route.length;
+  for (let i = 0; i < TRAFFIC_ROUTES.length; i++) {
+    const route = TRAFFIC_ROUTES[i];
+    const wp = TRAFFIC_START_WP[i] % route.length;
     const paint = TRAFFIC_PAINT[i];
+    const cruise = paint.van ? rng.range(6.5, 8.5) : paint.taxi ? rng.range(9, 11.5) : rng.range(7.5, 10.5);
+    const next = route[(wp + 1) % route.length];
     traffic.push({
-      x: route[wp][0], z: route[wp][1], heading: 0, speed: 0, kind: 'traffic',
+      x: route[wp][0], z: route[wp][1], heading: headingTo(next[0] - route[wp][0], next[1] - route[wp][1]), speed: 0, kind: 'traffic',
       name: paint.name, body: paint.body, taxi: !!paint.taxi, van: !!paint.van,
-      route, wp: (wp + 1) % route.length, cruise: rng.range(7.5, 10), neighbours: [],
+      route, wp: (wp + 1) % route.length, cruise, neighbours: [],
     });
   }
   const police = {

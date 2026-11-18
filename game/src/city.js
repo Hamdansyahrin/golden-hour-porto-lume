@@ -233,11 +233,16 @@ export function createCity() {
   // Delivery apron painted on the ground in front of the door.
   b.groundQuad(G.x - G.halfX, G.z - G.halfZ, G.x + G.halfX, G.z + G.halfZ, 0.05, [0.5, 0.46, 0.34]);
 
-  // ---- festival stalls along the east sidewalk of Rua das Flores.
+  // ---- festival stalls along the east sidewalk of Rua das Flores. The row starts at
+  // the boulevard line itself (z = 0) so no stall stands inside the boulevard
+  // crossing: the P0 row (starting at z = -2) put two stalls squarely across both
+  // boulevard traffic lanes, which trapped boulevard cars against their west/east
+  // faces forever — the P1-A traffic soak exposed it. The mission stall (the middle
+  // one) now sits at z = 13 on the same sidewalk, beside the same keeper spot.
   const stallCols = [COL.stallA, COL.stallB, COL.stallC, COL.stallA, COL.stallB];
   WORLD.stallList = [];
   for (let i = 0; i < 5; i++) {
-    const sz = -2 + i * 6.5;
+    const sz = 0 + i * 6.5;
     const sx = S.x + S.walkHalf - 1.1;
     b.box(sx, 0.55, sz, 2.2, 1.1, 3.4, 0, COL.stallWood);
     b.box(sx, 2.5, sz, 2.6, 0.18, 3.9, 0, stallCols[i]);
@@ -249,14 +254,16 @@ export function createCity() {
   }
   // The mission stall is the middle one: it carries the package crate.
   WORLD.stall.x = S.x + S.walkHalf - 1.1;
-  WORLD.stall.z = -2 + 2 * 6.5;
+  WORLD.stall.z = 0 + 2 * 6.5;
   b.box(WORLD.stall.x, 1.35, WORLD.stall.z, 0.8, 0.5, 0.8, 0.4, COL.marker, { emissive: true });
 
   // ---- palms and lamps along the boulevard.
   for (let px = -90; px <= 90; px += 15) {
     for (const side of [-1, 1]) {
       const pz = side * (B.zHalf + 1.1);
-      if (Math.abs(px - S.x) < 6) continue;
+      // No palm at a street crossing: its trunk collider would sit in the side
+      // street's lane (the west-street lane passes 0.6 m from the px = -60 palm).
+      if (Math.abs(px - S.x) < 6 || Math.abs(px - WS.x) < 6 || Math.abs(px - ES.x) < 6) continue;
       b.box(px, 2.2, pz, 0.42, 4.4, 0.42, 0, COL.palmTrunk);
       for (let f = 0; f < 6; f++) {
         const a = (f / 6) * Math.PI * 2 + px;
