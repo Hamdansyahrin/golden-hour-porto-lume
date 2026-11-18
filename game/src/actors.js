@@ -276,7 +276,7 @@ export function updatePeds(G, dt) {
     if (!threat && G.crimeTimer > 0 && Math.hypot(G.crimeX - ped.x, G.crimeZ - ped.z) < 11) {
       threat = { x: G.crimeX, z: G.crimeZ };
     }
-    if (threat) { ped.state = 'flee'; ped.fleeT = 3.2; ped.threatX = threat.x; ped.threatZ = threat.z; }
+    if (threat) { ped.state = 'flee'; ped.fleeT = 3.2; ped.threatX = threat.x; ped.threatZ = threat.z; ped.pauseT = 0; }
 
     if (ped.state === 'flee') {
       ped.fleeT -= dt;
@@ -287,6 +287,10 @@ export function updatePeds(G, dt) {
       ped.z += Math.cos(ped.heading) * 3.7 * dt;
       ped.walkPhase += dt * 11;
       if (ped.fleeT <= 0) ped.state = 'walk';
+    } else if (ped.pauseT > 0) {
+      // Browsing: stand at the stall a while, shifting weight, before strolling on.
+      ped.pauseT -= dt;
+      ped.walkPhase += dt * 1.1;
     } else {
       const [tx, tz] = ped.path[ped.wp];
       const d = Math.hypot(tx - ped.x, tz - ped.z);
@@ -294,6 +298,9 @@ export function updatePeds(G, dt) {
         ped.wp = ped.dir > 0 ? ped.wp + 1 : ped.wp - 1;
         if (ped.wp >= ped.path.length) { ped.wp = ped.path.length - 2; ped.dir = -1; }
         if (ped.wp < 0) { ped.wp = 1; ped.dir = 1; }
+        // A browser pauses at each end of its little stroll; the pause length varies
+        // deterministically with the waypoint so the crowd never syncs up.
+        if (ped.behavior === 'browse') ped.pauseT = ped.pauseDur * (1 + (ped.wp % 3) * 0.4);
       } else {
         const want = headingTo(tx - ped.x, tz - ped.z);
         ped.heading += wrapAngle(want - ped.heading) * Math.min(1, dt * 6);

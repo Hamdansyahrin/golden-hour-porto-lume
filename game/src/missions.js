@@ -44,6 +44,9 @@ function makePed(rng, path, wp, opts = {}) {
     x: path[wp][0], z: path[wp][1], heading: 0, speed: rng.range(1.1, 1.6),
     path, wp, dir: 1, state: 'walk', fleeT: 0, threatX: 0, threatZ: 0,
     walkPhase: rng.range(0, 6), stationary: !!opts.stationary,
+    // P1-A behaviours: 'walk' patrols its path, 'browse' pauses at each path end
+    // (a shopper at a stall), stationary peds with a partner to face are chat pairs.
+    behavior: opts.behavior ?? 'walk', pauseT: 0, pauseDur: opts.pauseDur ?? 0,
     top: opts.top ?? rng.pick(PED_TOPS), trousers: rng.pick(PED_BOTTOMS),
     skin: rng.pick(SKIN), hair: rng.pick(HAIR),
   };
@@ -96,6 +99,55 @@ export function createGameState(colliders) {
   const keeper = makePed(rng, [[24.9, 14.6]], 0, { stationary: true, top: [0.85, 0.3, 0.24] });
   keeper.heading = Math.PI; // face the stall
   peds.push(keeper);
+
+  // ---- P1-A crowd: 25 more Porto Lume residents (34 peds in total). The boulevard
+  // and the festival street stay the densest, as they should at golden hour; the new
+  // roads get lighter foot traffic. All seeded, all on sidewalk paths.
+  // More boulevard strollers.
+  const blvdExtra = [
+    makePed(rng, southWalk, 0), makePed(rng, southWalk, 1),
+    makePed(rng, northWalk, 0), makePed(rng, northWalk, 1),
+  ];
+  blvdExtra[0].x = -58; blvdExtra[1].x = 62; blvdExtra[2].x = -20; blvdExtra[3].x = 48;
+  peds.push(...blvdExtra);
+  // Festival browsers: short strolls along the stall sidewalk, pausing at each end
+  // to look at the bancas.
+  for (const [z0, z1] of [[1, 5.5], [8, 12], [14.5, 18.5], [20.5, 25]]) {
+    peds.push(makePed(rng, [[24.7, z0], [24.7, z1]], 0, { behavior: 'browse', pauseDur: rng.range(2.5, 5) }));
+  }
+  // Two idle chat pairs, standing face to face: one on the boulevard's south
+  // sidewalk, one on Praça do Relógio.
+  function chatPair(x0, z0, x1, z1) {
+    const a = makePed(rng, [[x0, z0]], 0, { stationary: true });
+    const b = makePed(rng, [[x1, z1]], 0, { stationary: true });
+    a.heading = headingTo(x1 - x0, z1 - z0);
+    b.heading = headingTo(x0 - x1, z0 - z1);
+    peds.push(a, b);
+  }
+  chatPair(-12, 9.3, -10.9, 8.5);
+  chatPair(35, -54.2, 36.3, -55);
+  // Walkers on the new roads' sidewalks.
+  const northWalkS = [[-86, -41.8], [86, -41.8]];
+  const northWalkN = [[86, -54.2], [-86, -54.2]];
+  const southWalkN = [[-86, 31.8], [86, 31.8]];
+  const southWalkS = [[86, 44.2], [-86, 44.2]];
+  const westWalkE = [[-55.8, 44], [-55.8, -42]];
+  const eastWalkW = [[61.8, -42], [61.8, 44]];
+  const docasWalk = [[-50, 46.6], [8, 46.6]];
+  const plazaWalk = [[28, -53.8], [46, -53.8]];
+  const nw1 = makePed(rng, northWalkS, 0); nw1.x = -40;
+  const nw2 = makePed(rng, northWalkS, 1); nw2.x = 55;
+  const nw3 = makePed(rng, northWalkN, 0); nw3.x = 5;
+  const nw4 = makePed(rng, northWalkN, 1); nw4.x = -70;
+  const sw1 = makePed(rng, southWalkN, 0); sw1.x = -15;
+  const sw2 = makePed(rng, southWalkN, 1); sw2.x = 75;
+  const sw3 = makePed(rng, southWalkS, 0); sw3.x = 30;
+  const ww1 = makePed(rng, westWalkE, 0); ww1.z = 10;
+  const ww2 = makePed(rng, westWalkE, 1); ww2.z = -25;
+  const ew1 = makePed(rng, eastWalkW, 0); ew1.z = -8;
+  const ew2 = makePed(rng, eastWalkW, 1); ew2.z = 20;
+  peds.push(nw1, nw2, nw3, nw4, sw1, sw2, sw3, ww1, ww2, ew1, ew2,
+    makePed(rng, docasWalk, 0), makePed(rng, plazaWalk, 0));
 
   return {
     screen: 'title',
