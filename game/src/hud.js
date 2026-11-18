@@ -3,7 +3,7 @@
 // overlays for title / detained / job-done. Text is only rewritten when it changes, so a
 // frame allocates nothing in the steady state.
 
-import { STAGE } from './missions.js';
+import { STAGE, CALOR_LABEL } from './missions.js';
 import { WORLD } from './city.js';
 
 const OBJECTIVES = {
@@ -50,7 +50,10 @@ export function createHud() {
       let starHtml = '';
       for (let i = 1; i <= 5; i++) starHtml += i <= G.wanted ? '<span class="on">★</span>' : '★';
       setHtml(stars, 'stars', starHtml);
-      set(sight, 'sight', G.wanted === 0 ? '' : (G.cooldownT > 0 ? 'A ARREFECER…' : (G.seen ? 'À VISTA · PROCURADO' : 'FORA DE VISTA · A ARREFECER')));
+      // Sight state (real LOS since P1-B) + the response doctrine for this level,
+      // so the escalation is readable at a glance: stars, À VISTA / FORA DE VISTA,
+      // and what the PMPL does next at this CALOR.
+      set(sight, 'sight', G.wanted === 0 ? '' : (G.cooldownT > 0 ? 'A ARREFECER…' : `${G.seen ? 'À VISTA' : 'FORA DE VISTA'} · ${CALOR_LABEL[G.wanted] ?? ''}`));
       set(money, 'money', `${G.money} lumes`);
       set(district, 'district', G.district ?? '');
       toggle(prompt, 'prompt', !!G.prompt && G.screen === 'play');

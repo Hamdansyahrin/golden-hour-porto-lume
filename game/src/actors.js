@@ -220,7 +220,13 @@ export function collideCars(G, dt) {
       // stopped cars are not pinned by the damping while the push separates them.
       const damp = impact > 4 ? 0.6 : 0.92;
       a.speed *= damp; c.speed *= damp;
-      if (impact > 7 && (a === G.playerCar || c === G.playerCar) && G.player.mode === 'car') G.bumpTimer = 0.001;
+      if (impact > 7 && (a === G.playerCar || c === G.playerCar) && G.player.mode === 'car') {
+        // A hard ram by Rui: missions.js (CALOR rules R2/R3) needs to know WHAT he
+        // hit — a police unit escalates harder than a traffic car.
+        G.bumpTimer = 0.001;
+        const other = a === G.playerCar ? c : a;
+        G.bumpKind = other.kind === 'police' ? 'police' : 'traffic';
+      }
     }
   }
   void dt;
