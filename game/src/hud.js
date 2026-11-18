@@ -47,8 +47,11 @@ export function createHud() {
       const o = OBJECTIVES[G.stage] ?? OBJECTIVES[STAGE.GO];
       set(mObj, 'obj', o.obj);
       set(mNext, 'next', 'Seguinte: ' + o.next);
+      // CALOR stars (P1-C polish): lit stars are filled red glyphs, unlit ones
+      // are hollow outlines — the count reads at a glance (and at contact-sheet
+      // scale) instead of five identical glyphs in two shades of brown/red.
       let starHtml = '';
-      for (let i = 1; i <= 5; i++) starHtml += i <= G.wanted ? '<span class="on">★</span>' : '★';
+      for (let i = 1; i <= 5; i++) starHtml += i <= G.wanted ? '<span class="on">★</span>' : '☆';
       setHtml(stars, 'stars', starHtml);
       // Sight state (real LOS since P1-B) + the response doctrine for this level,
       // so the escalation is readable at a glance: stars, À VISTA / FORA DE VISTA,

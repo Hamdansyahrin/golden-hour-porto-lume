@@ -32,10 +32,12 @@ export function createMinimap(canvas) {
       ctx.beginPath();
       ctx.arc(C, C, C - 2, 0, Math.PI * 2);
       ctx.clip();
-      // Ground and streets: every road band in the network.
-      ctx.fillStyle = '#31483a';
+      // Ground and streets: every road band in the network. (P1-C: the road
+      // grey lifts a step and the ground green deepens a step, so the network
+      // reads as a network at contact-sheet scale, not as texture.)
+      ctx.fillStyle = '#2e4638';
       ctx.fillRect(0, 0, S, S);
-      ctx.fillStyle = '#3d3a40';
+      ctx.fillStyle = '#4a4550';
       for (const band of ROAD_BANDS.h) ctx.fillRect(0, pz(band.z - band.half, cz), S, band.half * 2 * scale);
       for (const band of ROAD_BANDS.v) ctx.fillRect(px(band.x - band.half, cx), 0, band.half * 2 * scale, S);
       // The dry canal strip at the east edge and the harbour water at the south.
@@ -60,6 +62,12 @@ export function createMinimap(canvas) {
         const rim = C - 12;
         const kx = d > rim ? C + ((mx - C) / d) * rim : mx;
         const kz = d > rim ? C + ((mz - C) / d) * rim : mz;
+        // Mission marker (P1-C): a bigger gold chevron on a dark backing
+        // triangle, so the target survives downscaling and rim clamping.
+        ctx.fillStyle = '#201404';
+        ctx.beginPath();
+        ctx.moveTo(kx, kz - 8); ctx.lineTo(kx + 7, kz + 6); ctx.lineTo(kx - 7, kz + 6);
+        ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#ffbe3c';
         ctx.beginPath();
         ctx.moveTo(kx, kz - 6); ctx.lineTo(kx + 5, kz + 4); ctx.lineTo(kx - 5, kz + 4);
@@ -68,21 +76,29 @@ export function createMinimap(canvas) {
       for (const ped of G.peds) dot(px(ped.x, cx), pz(ped.z, cz), 1.6, '#d8b98a');
       for (const car of G.traffic) dot(px(car.x, cx), pz(car.z, cz), 2.6, '#cfd4d8');
       // The player's own car, when he is out of it.
-      if (G.player.mode === 'foot') dot(px(G.playerCar.x, cx), pz(G.playerCar.z, cz), 3, '#37c8d8');
-      // Police: one blip per unit, alternating blue/red like its light bar;
+      if (G.player.mode === 'foot') dot(px(G.playerCar.x, cx), pz(G.playerCar.z, cz), 3.6, '#37c8d8');
+      // Police: one blip per unit, alternating blue/red like its light bar,
+      // on a white halo disc so a unit reads against any ground colour;
       // standby units at their depots blink slower so the active response reads.
       for (const cop of G.policeUnits) {
         const blink = cop.active && G.wanted > 0 ? Math.floor(G.time * 2.4) % 2 : Math.floor(G.time * 0.8) % 2;
-        dot(px(cop.x, cx), pz(cop.z, cz), 4, blink ? '#3f7dff' : '#ff4030');
+        dot(px(cop.x, cx), pz(cop.z, cz), 5.4, 'rgba(255,255,255,0.85)');
+        dot(px(cop.x, cx), pz(cop.z, cz), 4.2, blink ? '#3f7dff' : '#ff4030');
         dot(px(cop.x, cx), pz(cop.z, cz), 1.8, '#ffffff');
       }
-      // ÁGUIA-1 while airborne: a gold diamond over its shadow position.
+      // ÁGUIA-1 while airborne: a larger gold diamond with a dark rim and a
+      // white core over its shadow position — the one blip that is not a car.
       if (G.heli.state !== 'parked') {
         const hx = px(G.heli.x, cx), hz = pz(G.heli.z, cz);
+        ctx.fillStyle = '#201404';
+        ctx.beginPath();
+        ctx.moveTo(hx, hz - 7.5); ctx.lineTo(hx + 6, hz); ctx.lineTo(hx, hz + 7.5); ctx.lineTo(hx - 6, hz);
+        ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#ffd23c';
         ctx.beginPath();
-        ctx.moveTo(hx, hz - 5); ctx.lineTo(hx + 4, hz); ctx.lineTo(hx, hz + 5); ctx.lineTo(hx - 4, hz);
+        ctx.moveTo(hx, hz - 6); ctx.lineTo(hx + 4.8, hz); ctx.lineTo(hx, hz + 6); ctx.lineTo(hx - 4.8, hz);
         ctx.closePath(); ctx.fill();
+        dot(hx, hz, 1.6, '#ffffff');
       }
       // Rui: a white arrow on his heading.
       ctx.translate(C, C);
