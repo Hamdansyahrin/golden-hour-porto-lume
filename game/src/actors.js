@@ -43,6 +43,14 @@ export function paintCar(b, car, flash) {
   }
   if (car.kind === 'police') {
     b.box(x, 0.6, z, 1.84, 0.34, 4.34, h, [0.2, 0.35, 0.85]); // PMPL blue band
+    // P1-C livery crisping (geometry only, the engine has no textures): a thin
+    // gold pinstripe along the top edge of the blue band, a blue bonnet panel
+    // and a white roof cap over the cabin — three hard edges that keep the
+    // PMPL identity readable at chase distance and at thumbnail scale.
+    b.box(x, 0.84, z, 1.86, 0.09, 4.36, h, [1, 0.75, 0.25]);
+    b.box(x + fx * 1.35, 0.92, z + fz * 1.35, 1.5, 0.07, 1.1, h, [0.2, 0.35, 0.85]);
+    const roofX = x - fx * 0.25, roofZ = z - fz * 0.25;
+    b.box(roofX, 1.4, roofZ, 1.62, 0.09, 1.94, h, [0.95, 0.96, 0.97]);
     const lx = x - fx * 0.25, lz = z - fz * 0.25;
     b.box(lx, 1.48, lz, 1.1, 0.16, 0.5, h, DARK);
     b.box(lx + rx * -0.3, 1.5, lz + rz * -0.3, 0.45, 0.2, 0.44, h, flash ? [1, 0.1, 0.1] : [0.4, 0.05, 0.05], { emissive: true });

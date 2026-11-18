@@ -59,24 +59,30 @@ export const CALOR_LABEL = {
 /** Wanted level at which each police unit (by index) joins the response. */
 export const UNIT_JOIN_LEVEL = [0, 3, 3, 4];
 
-const PED_TOPS = [[0.8, 0.35, 0.25], [0.3, 0.55, 0.6], [0.9, 0.7, 0.3], [0.45, 0.4, 0.7], [0.85, 0.85, 0.8], [0.6, 0.3, 0.45]];
-const PED_BOTTOMS = [[0.25, 0.25, 0.35], [0.4, 0.3, 0.2], [0.3, 0.35, 0.3], [0.55, 0.45, 0.35]];
+// Pedestrian clothing palettes (P1-C widened: rose, deep green, white linen
+// and burgundy tops; linen and denim bottoms; a grey hair tone — the crowd
+// stops reading as six shirts on rotation). Seeded picks, as always.
+const PED_TOPS = [[0.8, 0.35, 0.25], [0.3, 0.55, 0.6], [0.9, 0.7, 0.3], [0.45, 0.4, 0.7], [0.85, 0.85, 0.8], [0.6, 0.3, 0.45], [0.92, 0.45, 0.55], [0.25, 0.45, 0.35], [0.95, 0.92, 0.88], [0.55, 0.25, 0.2]];
+const PED_BOTTOMS = [[0.25, 0.25, 0.35], [0.4, 0.3, 0.2], [0.3, 0.35, 0.3], [0.55, 0.45, 0.35], [0.85, 0.8, 0.7], [0.2, 0.3, 0.45]];
 const SKIN = [[0.85, 0.62, 0.45], [0.62, 0.42, 0.3], [0.95, 0.75, 0.55], [0.5, 0.34, 0.24]];
-const HAIR = [[0.15, 0.1, 0.08], [0.35, 0.22, 0.12], [0.6, 0.5, 0.4], [0.1, 0.1, 0.12]];
+const HAIR = [[0.15, 0.1, 0.08], [0.35, 0.22, 0.12], [0.6, 0.5, 0.4], [0.1, 0.1, 0.12], [0.75, 0.72, 0.68]];
+// Traffic paint (P1-C widened within the same slots: models, taxi/van flags
+// and routes are unchanged — only the hues spread wider across the harbour
+// palette, so a held-up queue reads as seven different cars, not three).
 const TRAFFIC_PAINT = [
-  { body: [0.75, 0.3, 0.22], name: 'Ondina' },
-  { body: [0.3, 0.5, 0.75], name: 'Ondina' },
+  { body: [0.84, 0.34, 0.22], name: 'Ondina' },
+  { body: [0.27, 0.47, 0.78], name: 'Ondina' },
   { body: [0.92, 0.75, 0.25], name: 'Táxi Lume', taxi: true },
   { body: [0.85, 0.85, 0.82], name: 'Furgão Brisa', van: true },
-  { body: [0.35, 0.6, 0.45], name: 'Ondina' },
+  { body: [0.32, 0.66, 0.52], name: 'Ondina' },
   { body: [0.92, 0.75, 0.25], name: 'Táxi Lume', taxi: true },
-  { body: [0.88, 0.82, 0.7], name: 'Ondina' },
-  { body: [0.7, 0.72, 0.75], name: 'Furgão Brisa', van: true },
-  { body: [0.2, 0.55, 0.6], name: 'Ondina' },
+  { body: [0.9, 0.76, 0.5], name: 'Ondina' },
+  { body: [0.55, 0.62, 0.72], name: 'Furgão Brisa', van: true },
+  { body: [0.16, 0.5, 0.58], name: 'Ondina' },
   { body: [0.92, 0.75, 0.25], name: 'Táxi Lume', taxi: true },
-  { body: [0.55, 0.4, 0.65], name: 'Ondina' },
+  { body: [0.63, 0.35, 0.55], name: 'Ondina' },
   { body: [0.8, 0.8, 0.78], name: 'Furgão Brisa', van: true },
-  { body: [0.85, 0.5, 0.25], name: 'Ondina' },
+  { body: [0.9, 0.56, 0.18], name: 'Ondina' },
 ];
 // One route per car, in paint order: the P0 five keep their P0 routes, the P1-A cars
 // take the new loops so every street in the grid carries traffic.
