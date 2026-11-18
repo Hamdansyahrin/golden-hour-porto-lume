@@ -9,6 +9,9 @@
 //   ?shot=roadblock  P1-B: the 4-star blockade formed across the boulevard.
 //   ?shot=heli     P1-B cover candidate: 5 stars, ÁGUIA-1's spotlight, the
 //                  roadblock ahead and the Farol closing the frame.
+//   ?shot=festival P1-D: the dense festival frame — Rui before the stall row
+//                  on Rua das Flores at golden hour, the crowd around the
+//                  bancas, bunting overhead, the M1 objective live.
 
 import { WORLD, headingTo } from './city.js';
 import { STAGE } from './missions.js';
@@ -48,6 +51,7 @@ export function stageShot(G, name, step) {
   if (name === 'deliver') return stageDeliver(G, step);
   if (name === 'roadblock') return stageRoadblock(G, step);
   if (name === 'heli') return stageHeli(G, step);
+  if (name === 'festival') return stageFestival(G, step);
   return stageBoxin(G, step);
 }
 
@@ -281,4 +285,77 @@ function stageDeliver(G, step) {
   // and a step lower, Rui sits right of centre (NDC x 0.16), the Vela left
   // (-0.23) and the garage door between them — same story, larger in frame.
   setCameraLook(G, 42, 4.2, -0.5, 56, 1.1, 12);
+}
+
+// SHOT 6 — the festival (P1-D): the dense golden-hour frame on Rua das Flores.
+// Rui stands before the stall row with the M1 objective live (stage GO, the
+// gold marker on the middle banca), and the street is FULL: the keeper at his
+// banca, browsers at the stall fronts, a chat pair, strollers on the east
+// sidewalk — eleven placed peds in and around the row. Traffic is pinned to
+// the boulevard only (two cars), the rest of the fleet parked far away on
+// its own routes, and the PMPL sits far off at its depot, CALOR calm. The
+// camera stands west of Rui looking east-north-east up the row, so the frame
+// layers Rui in the foreground, the crowd mid-frame and at least three stall
+// canopies under the Rua das Flores bunting strings. Composition verified by
+// projecting the subjects with the engine's own matrices (see the P1-D sim).
+function stageFestival(G, step) {
+  G.stage = STAGE.GO;
+  G.missionIdx = 0;
+  G.wanted = 0;
+  G.money = 35;
+  G.player.mode = 'foot';
+  G.player.x = 23.2; G.player.z = 10; G.player.heading = -Math.PI / 2; // facing the stalls
+  placeCar(G.playerCar, WORLD.playerCar.x, WORLD.playerCar.z, WORLD.playerCar.heading, 0);
+  // Police far away: LUME-1 parked at its depot, the rest on standby there.
+  placeCar(G.police, WORLD.policePark.x, WORLD.policePark.z, WORLD.policePark.heading, 0);
+  // Traffic: two cars on the boulevard only; the other P0 cars pinned far
+  // away on their own routes, the P1-A fleet parked by parkExtraTraffic.
+  placeCar(G.traffic[0], -14, 3.6, -Math.PI / 2, 6);
+  placeCar(G.traffic[1], 44, -3.6, Math.PI / 2, 6);
+  placeCar(G.traffic[2], 17.6, -52, headingTo(2.4, -4), 0);
+  G.traffic[2].wp = 2;
+  placeCar(G.traffic[3], -86, 3.6, -Math.PI / 2, 0);
+  G.traffic[3].wp = 1;
+  placeCar(G.traffic[4], 22.4, -52, headingTo(0, 86), 0);
+  G.traffic[4].wp = 4;
+  parkExtraTraffic(G);
+  // One parkExtra car (traffic[7], SOUTH_LOOP) would otherwise settle at
+  // the Rua das Docas junction inside the festival street's band; pin it
+  // far east on its own route instead (festival only — the shared
+  // parkExtraTraffic spots stay as every other staging knows them).
+  placeCar(G.traffic[7], 65.4, 33, headingTo(0, -28), 0);
+  G.traffic[7].wp = 10;
+  // The crowd around the stall row (stalls at x 26.4, z 0 / 6.5 / 13 / 19.5 / 26).
+  placePed(G.peds[8], 24.9, 14.6, Math.PI); // the keeper at his banca
+  placePed(G.peds[13], 24.8, 0.8, -Math.PI / 2); // browsers at the stall fronts
+  placePed(G.peds[14], 24.8, 7.2, -Math.PI / 2);
+  placePed(G.peds[15], 24.8, 19.8, -Math.PI / 2);
+  placePed(G.peds[16], 24.8, 25.6, -Math.PI / 2);
+  placePed(G.peds[0], 24.8, 11.2, -Math.PI / 2);
+  placePed(G.peds[9], 24.6, 5.2, -Math.PI / 2);
+  placePed(G.peds[17], 23.9, 16.8, headingTo(0.8, 0.8)); // a chat pair, face to face
+  placePed(G.peds[18], 24.7, 17.6, headingTo(-0.8, -0.8));
+  placePed(G.peds[5], 24.7, 4, 0); // strollers on the east sidewalk
+  placePed(G.peds[6], 24.7, 22.5, Math.PI);
+  G.dialogue = { who: 'Sr. Baltazar', text: '“É a hora dourada, Rui. As bancas estão cheias — e o festival espera por esse pacote.”', until: 1e9 };
+  settle(G, step, 0.3);
+  // Re-pin Rui and the placed crowd after the settle so the frame is exact.
+  G.player.x = 23.2; G.player.z = 10; G.player.heading = -Math.PI / 2;
+  G.player.mode = 'foot';
+  placePed(G.peds[8], 24.9, 14.6, Math.PI);
+  placePed(G.peds[13], 24.8, 0.8, -Math.PI / 2);
+  placePed(G.peds[14], 24.8, 7.2, -Math.PI / 2);
+  placePed(G.peds[15], 24.8, 19.8, -Math.PI / 2);
+  placePed(G.peds[16], 24.8, 25.6, -Math.PI / 2);
+  placePed(G.peds[0], 24.8, 11.2, -Math.PI / 2);
+  placePed(G.peds[9], 24.6, 5.2, -Math.PI / 2);
+  placePed(G.peds[17], 23.9, 16.8, headingTo(0.8, 0.8));
+  placePed(G.peds[18], 24.7, 17.6, headingTo(-0.8, -0.8));
+  placePed(G.peds[5], 24.7, 4, 0);
+  placePed(G.peds[6], 24.7, 22.5, Math.PI);
+  G.wanted = 0; G.stage = STAGE.GO; G.money = 35;
+  G.markerX = WORLD.stall.x; G.markerZ = WORLD.stall.z;
+  G.prompt = '<b>E</b> — levantar o pacote da banca';
+  G.dialogue = { who: 'Sr. Baltazar', text: '“É a hora dourada, Rui. As bancas estão cheias — e o festival espera por esse pacote.”', until: 1e9 };
+  setCameraLook(G, 17.9, 2.7, 1.6, 25.9, 1.9, 11.8);
 }
