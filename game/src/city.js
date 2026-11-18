@@ -26,6 +26,11 @@ export const COL = {
   palmTrunk: [0.42, 0.3, 0.2], palmLeaf: [0.25, 0.52, 0.28],
   lampPost: [0.2, 0.18, 0.2], lampGlow: [1.0, 0.8, 0.45],
   stallWood: [0.5, 0.33, 0.2], stallA: [0.85, 0.3, 0.24], stallB: [0.95, 0.62, 0.2], stallC: [0.3, 0.6, 0.62],
+  // P1-C dressing palettes: shop fascia signs and awnings in harbour colours —
+  // coral, teal, marigold, plum, chalk, green, rose — so no two shopfronts in a
+  // row read the same at screenshot scale.
+  signs: [[0.85, 0.32, 0.24], [0.16, 0.5, 0.55], [0.95, 0.65, 0.18], [0.45, 0.35, 0.62], [0.92, 0.88, 0.8], [0.25, 0.55, 0.38], [0.78, 0.45, 0.62]],
+  awnings: [[0.85, 0.3, 0.24], [0.95, 0.62, 0.2], [0.3, 0.6, 0.62], [0.45, 0.35, 0.62], [0.25, 0.55, 0.38]],
   garageWall: [0.6, 0.58, 0.55], garageDoor: [0.25, 0.45, 0.5],
   farolWhite: [0.95, 0.92, 0.86], farolBand: [0.82, 0.3, 0.22], farolLamp: [1.0, 0.85, 0.45],
   marker: [1.0, 0.75, 0.25],
@@ -75,6 +80,11 @@ export function wrapAngle(a) {
 
 export function createCity() {
   const rng = createRng(20261118);
+  // P1-C dressing draws from its OWN seeded stream, so shopfronts, rooftop
+  // props and props below can be added or retuned without shifting a single
+  // draw of the layout stream above — Porto Lume's buildings, windows and
+  // stalls stay exactly where every earlier stage put them.
+  const dress = createRng(20261119);
   const b = new MeshBuilder();
   const colliders = []; // {minX, maxX, minZ, maxZ}
   const B = WORLD.boulevard, S = WORLD.sideStreet;
@@ -198,6 +208,43 @@ export function createCity() {
       else if (face === 0) b.wallQuad(cx + off, wy, cz - d / 2 - 0.06, 1.1, 1.5, 0, col, { emissive: lit });
       else if (face === 2) b.wallQuad(cx + w / 2 + 0.06, wy, cz + off, 1.1, 1.5, 2, col, { emissive: lit });
       else b.wallQuad(cx - w / 2 - 0.06, wy, cz + off, 1.1, 1.5, 3, col, { emissive: lit });
+    }
+    // ---- P1-C dressing on this building (own seeded stream, see `dress`):
+    // a ground-floor shopfront on the street face — an emissive fascia sign in
+    // a harbour colour over a slim awning slab — and, on flat roofs, one
+    // rooftop prop (an AC box, a water tank or an antenna) so rooflines stop
+    // reading as bare slabs from the chase camera and the title drift.
+    if (dress.chance(0.62)) {
+      const signCol = dress.pick(COL.signs);
+      const awnCol = dress.pick(COL.awnings);
+      const sw = span * 0.72;
+      if (face === 1) {
+        b.wallQuad(cx, 2.92, cz + d / 2 + 0.07, sw, 0.55, 1, signCol, { emissive: true });
+        b.box(cx, 2.42, cz + d / 2 + 0.38, span * 0.6, 0.13, 0.8, 0, awnCol);
+      } else if (face === 0) {
+        b.wallQuad(cx, 2.92, cz - d / 2 - 0.07, sw, 0.55, 0, signCol, { emissive: true });
+        b.box(cx, 2.42, cz - d / 2 - 0.38, span * 0.6, 0.13, 0.8, 0, awnCol);
+      } else if (face === 2) {
+        b.wallQuad(cx + w / 2 + 0.07, 2.92, cz, sw, 0.55, 2, signCol, { emissive: true });
+        b.box(cx + w / 2 + 0.38, 2.42, cz, 0.8, 0.13, span * 0.6, 0, awnCol);
+      } else {
+        b.wallQuad(cx - w / 2 - 0.07, 2.92, cz, sw, 0.55, 3, signCol, { emissive: true });
+        b.box(cx - w / 2 - 0.38, 2.42, cz, 0.8, 0.13, span * 0.6, 0, awnCol);
+      }
+    }
+    if ((opts.roof ?? 'flat') === 'flat' && dress.chance(0.55)) {
+      const ox = dress.range(-0.24, 0.24) * w, oz = dress.range(-0.24, 0.24) * d;
+      const kind = dress.next();
+      if (kind < 0.45) { // AC / plant box
+        b.box(cx + ox, h + 1.0, cz + oz, 1.5, 0.6, 1.05, 0, COL.garageWall, { shade: 0.92 });
+        b.box(cx + ox, h + 1.36, cz + oz, 1.1, 0.12, 0.7, 0, COL.roofs[2]);
+      } else if (kind < 0.75) { // water tank on a low plinth
+        b.box(cx + ox, h + 0.85, cz + oz, 1.3, 0.3, 1.3, 0, COL.stallWood);
+        b.prism(cx + ox, h + 1.55, cz + oz, 0.72, 1.1, 8, COL.roofs[3], { shade: 0.9 });
+      } else { // antenna mast with a crossbar
+        b.box(cx + ox, h + 1.75, cz + oz, 0.09, 2.1, 0.09, 0, COL.lampPost);
+        b.box(cx + ox, h + 2.45, cz + oz, 0.85, 0.07, 0.07, 0, COL.lampPost);
+      }
     }
   }
   // The rows keep gaps where streets cross: Rua das Flores (P0) and, since P1-A, the
@@ -429,6 +476,65 @@ export function createCity() {
   b.groundQuad(-220, -90, -118, 80, -0.4, [0.15, 0.47, 0.52]);
   for (const [gx, gz, gl] of [[-150, -30, 16], [-168, 4, 11], [-138, 30, 19], [-185, -52, 13]]) {
     b.groundQuad(gx, gz - gl / 2, gx + 0.55, gz + gl / 2, -0.35, [1.0, 0.8, 0.48], { emissive: true });
+  }
+
+  // ==================================================================
+  // P1-C dressing — static merged geometry only, all from the `dress`
+  // stream or fixed lists: festival bunting over the two festival streets,
+  // extra palms where a silhouette was missing, and crate/barrel clusters
+  // on the Docas apron. Nothing here moves, and nothing but the palms and
+  // the dock crates adds a (thin) collider, so traffic and LOS are as
+  // P1-B left them.
+  // ==================================================================
+  const BUNTING = [COL.stallA, COL.stallB, COL.stallC, [0.45, 0.35, 0.62], [0.92, 0.88, 0.8], [0.25, 0.55, 0.38]];
+  // Strings across Avenida do Farol: flags on a sagging line (ends 6.1 m,
+  // middle 5.35 m — well over every roofline a car carries), one flag every
+  // ~2.2 m, colours cycling the festival palette by fixed index.
+  // Flags are single wall quads, not boxes: the renderer never culls
+  // backfaces, so a 6-vertex flag reads from both sides for a sixth of the
+  // vertex cost of a box — dressing must not eat the frame budget.
+  let buntIdx = 0;
+  for (const bx of [-45, -5, 35, 75]) {
+    for (let i = 0; i < 10; i++) {
+      const fz = -9.9 + i * 2.2;
+      const fy = 5.35 + 0.75 * Math.pow(fz / 10.5, 2);
+      b.wallQuad(bx, fy, fz, 0.55, 0.68, 1, BUNTING[buntIdx % BUNTING.length]);
+      buntIdx += 1;
+    }
+  }
+  // Two strings across Rua das Flores, over the stall row itself.
+  for (const bz of [6, 20]) {
+    for (let i = 0; i < 7; i++) {
+      const fx = 13.4 + i * 2.2;
+      const fy = 5.35 + 0.75 * Math.pow((fx - 20) / 7.5, 2);
+      b.wallQuad(fx, fy, bz, 0.55, 0.68, 2, BUNTING[(i + bz) % BUNTING.length]);
+    }
+  }
+  // Extra palms: the plaza corner, the Docas apron end, the Farol apron and
+  // two on the grass bank before the canal — silhouettes for frames that
+  // were previously bare sky or bare grass. Same build as the boulevard row.
+  function dressPalm(px, pz) {
+    b.box(px, 2.2, pz, 0.42, 4.4, 0.42, 0, COL.palmTrunk);
+    for (let f = 0; f < 6; f++) {
+      const a = (f / 6) * Math.PI * 2 + px;
+      b.box(px + Math.cos(a) * 1.05, 4.95 - Math.abs(Math.sin(a)) * 0.35, pz + Math.sin(a) * 1.05, 2.0, 0.13, 0.5, -a, COL.palmLeaf);
+    }
+    colliders.push({ minX: px - 0.3, maxX: px + 0.3, minZ: pz - 0.3, maxZ: pz + 0.3 });
+  }
+  dressPalm(44, -64.5);
+  dressPalm(-56, 60);
+  dressPalm(-73, -20);
+  dressPalm(88, -20);
+  dressPalm(88, 24);
+  // Crates and barrels on the Docas apron, by the container stacks.
+  for (const [cx, cz] of [[-20, 50.5], [-18.9, 52.6], [-21.2, 53.1]]) {
+    b.box(cx, 0.42, cz, 0.85, 0.85, 0.85, 0, COL.stallWood, { shade: dress.range(0.82, 1) });
+    colliders.push({ minX: cx - 0.45, maxX: cx + 0.45, minZ: cz - 0.45, maxZ: cz + 0.45 });
+  }
+  b.box(-19.9, 1.24, 50.5, 0.8, 0.8, 0.8, 0.3, COL.stallWood, { shade: 0.9 });
+  for (const [cx, cz, col] of [[-24.5, 49.8, COL.stallC], [-23.6, 50.4, COL.stallA], [4, 52, COL.stallB]]) {
+    b.prism(cx, 0.48, cz, 0.42, 0.95, 7, col, { shade: 0.9 });
+    colliders.push({ minX: cx - 0.42, maxX: cx + 0.42, minZ: cz - 0.42, maxZ: cz + 0.42 });
   }
 
   return { builder: b, colliders };
