@@ -1,18 +1,116 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>GOLDEN HOUR — Porto Lume</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #2b1608; font-family: Georgia, 'Times New Roman', serif; }
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud { position: fixed; z-index: 5; color: #fff7e8; text-shadow: 0 1px 3px rgba(40,10,0,.85); pointer-events: none; }
+  #missionCard { top: 14px; left: 14px; max-width: 330px; background: linear-gradient(160deg, rgba(46,20,6,.82), rgba(24,10,4,.82)); border: 1px solid rgba(255,190,90,.55); border-left: 5px solid #ffb347; border-radius: 8px; padding: 10px 13px; }
+  #missionCard .kicker { font-size: 11px; letter-spacing: 2.5px; color: #ffcf87; text-transform: uppercase; }
+  #missionCard .title { font-size: 19px; font-weight: bold; margin: 2px 0; }
+  #missionCard .obj { font-size: 14px; line-height: 1.35; }
+  #missionCard .next { font-size: 12px; color: #ffd9a0; margin-top: 4px; font-style: italic; }
+  #topRight { top: 14px; right: 14px; text-align: right; }
+  #calorLabel { font-size: 11px; letter-spacing: 3px; color: #ffcf87; }
+  #stars { font-size: 27px; line-height: 1; color: #3a2410; letter-spacing: 3px; }
+  #stars .on { color: #ff5340; text-shadow: 0 0 9px rgba(255,60,30,.9); }
+  #sightState { font-size: 12px; letter-spacing: 1.5px; color: #ffb3a0; min-height: 15px; }
+  #money { font-size: 21px; font-weight: bold; color: #ffe9b0; margin-top: 3px; }
+  #district { font-size: 12px; letter-spacing: 2px; color: #ffe2b8; }
+  #minimapWrap { left: 14px; bottom: 14px; width: 176px; height: 176px; }
+  #minimap { width: 176px; height: 176px; border-radius: 50%; border: 2px solid rgba(255,200,110,.75); box-shadow: 0 4px 18px rgba(0,0,0,.55); background: #1d2b26; }
+  #vehicleCard { right: 14px; bottom: 14px; text-align: right; background: linear-gradient(200deg, rgba(46,20,6,.8), rgba(24,10,4,.8)); border: 1px solid rgba(255,190,90,.5); border-radius: 8px; padding: 9px 13px; min-width: 168px; }
+  #vehicleCard .vname { font-size: 16px; font-weight: bold; }
+  #vehicleCard .vspeed { font-size: 30px; font-weight: bold; color: #ffcf87; }
+  #vehicleCard .vunit { font-size: 11px; letter-spacing: 2px; color: #ffd9a0; }
+  #prompt { left: 50%; bottom: 108px; transform: translateX(-50%); font-size: 17px; background: rgba(24,10,4,.78); border: 1px solid rgba(255,190,90,.6); padding: 7px 16px; border-radius: 20px; white-space: nowrap; }
+  #prompt b { color: #ffcf87; }
+  #dialogue { left: 50%; bottom: 58px; transform: translateX(-50%); max-width: 640px; text-align: center; font-size: 15.5px; font-style: italic; background: rgba(24,10,4,.55); padding: 6px 14px; border-radius: 6px; }
+  #dialogue .who { color: #ffcf87; font-style: normal; font-weight: bold; }
+  #bustBar { left: 50%; bottom: 150px; transform: translateX(-50%); width: 240px; height: 10px; border: 1px solid rgba(255,120,90,.8); border-radius: 5px; background: rgba(20,0,0,.6); overflow: hidden; }
+  #bustFill { height: 100%; width: 0%; background: #ff4030; }
+  #bustLabel { left: 50%; bottom: 164px; transform: translateX(-50%); font-size: 13px; letter-spacing: 3px; color: #ff9a8a; }
+  .card { position: fixed; z-index: 9; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 38%, rgba(60,22,2,.28), rgba(16,5,0,.78)); pointer-events: none; }
+  .card .box { max-width: 560px; text-align: center; color: #fff3da; background: linear-gradient(165deg, rgba(52,22,6,.92), rgba(22,9,3,.94)); border: 1px solid rgba(255,190,90,.65); border-radius: 12px; padding: 30px 38px; box-shadow: 0 18px 60px rgba(0,0,0,.6); }
+  .card h1 { margin: 0 0 4px; font-size: 46px; letter-spacing: 5px; color: #ffcf87; }
+  .card h2 { margin: 0 0 10px; font-size: 30px; letter-spacing: 3px; color: #ffcf87; }
+  .card .tag { font-style: italic; color: #ffd9a0; margin-bottom: 14px; }
+  .card p { font-size: 15.5px; line-height: 1.5; margin: 8px 0; }
+  .card .controls { font-size: 13px; color: #f4cf9d; line-height: 1.65; }
+  .card .go { display: inline-block; margin-top: 16px; font-size: 17px; letter-spacing: 2px; color: #2b1608; background: linear-gradient(180deg, #ffd98f, #ffab4a); padding: 10px 26px; border-radius: 24px; font-weight: bold; }
+  .hidden { display: none !important; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<canvas id="gl" aria-label="Golden Hour: Porto Lume, um jogo de mundo aberto — anda a pé e de carro, foge à Polícia Municipal"></canvas>
+
+<div class="hud" id="missionCard">
+  <div class="kicker" id="mKicker">Trabalho 1 · Dona Pilar Andrade</div>
+  <div class="title" id="mTitle">O Pacote do Festival</div>
+  <div class="obj" id="mObj">Aceita o trabalho para começar.</div>
+  <div class="next" id="mNext"></div>
+</div>
+
+<div class="hud" id="topRight">
+  <div id="calorLabel">CALOR · PMPL</div>
+  <div id="stars"></div>
+  <div id="sightState"></div>
+  <div id="money">0 lumes</div>
+  <div id="district">AVENIDA DO FAROL · PORTO LUME</div>
+</div>
+
+<div class="hud" id="minimapWrap"><canvas id="minimap" width="176" height="176"></canvas></div>
+
+<div class="hud hidden" id="vehicleCard">
+  <div class="vname" id="vName">Vela Sprint</div>
+  <div><span class="vspeed" id="vSpeed">0</span> <span class="vunit">KM/H</span></div>
+  <div class="vunit" id="vHint">E — sair do carro</div>
+</div>
+
+<div class="hud hidden" id="bustLabel">A PMPL ESTÁ A AGARRAR-TE…</div>
+<div class="hud hidden" id="bustBar"><div id="bustFill"></div></div>
+<div class="hud hidden" id="prompt"></div>
+<div class="hud hidden" id="dialogue"></div>
+
+<div class="card" id="titleCard">
+  <div class="box">
+    <h1>GOLDEN HOUR</h1>
+    <div class="tag">“Porto Lume paga as suas dívidas ao pôr-do-sol.”</div>
+    <p>És <b>Rui Tavares</b>, antigo piloto de ralis. Dona Pilar Andrade guarda o porto —
+    e a dívida do teu pai. Um trabalho de cada vez, antes que a luz se apague.</p>
+    <p><b>Trabalho 1 — O Pacote do Festival:</b> levanta o pacote da banca do festival na
+    Rua das Flores e entrega-o na garagem de Dona Pilar, na avenida. A Polícia Municipal
+    de Porto Lume (PMPL) está a ver — o CALOR sobe quando te veem cometer o crime.</p>
+    <div class="controls">
+      WASD — andar / conduzir · Shift — correr · E — entrar, sair, levantar<br>
+      Rato (arrastar) — rodar a câmara · Enter — aceitar / continuar
+    </div>
+    <span class="go">COMEÇAR — prime ENTER</span>
+  </div>
+</div>
+
+<div class="card hidden" id="bustedCard">
+  <div class="box">
+    <h2>DETIDO</h2>
+    <p>A Patrulha LUME-1 apanhou o Rui. Dona Pilar não paga a detidos —
+    o pacote perdeu-se, mas o trabalho continua aberto.</p>
+    <span class="go">TENTAR DE NOVO — prime ENTER</span>
+  </div>
+</div>
+
+<div class="card hidden" id="doneCard">
+  <div class="box">
+    <h2>TRABALHO FEITO</h2>
+    <p id="doneText">O pacote chegou à garagem de Dona Pilar.</p>
+    <p><b>+450 lumes</b> · A dívida do teu pai encolhe. Porto Lume respira — por agora.</p>
+    <span class="go">CONTINUAR A ANDAR — prime ENTER</span>
+  </div>
+</div>
+
 <p id="status" role="status" aria-live="polite"></p>
 <script type="module" src="./src/main.js"></script>
 </body>

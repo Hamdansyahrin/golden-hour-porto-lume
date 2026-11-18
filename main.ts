@@ -1,3 +1,6 @@
+// GOLDEN HOUR — Porto Lume (gta6-01 entry): a 3D open-world crime game in game/ — Rui
+// Tavares, the PMPL's CALOR wanted system, one festival-package job for Dona Pilar — handed
+// in by this program, which copies game/ and screenshots/ to /output and writes the dossier.
 // A working gta6-01 entry (Node 22, standard library only): the game is this directory's
 // game/ folder, plain static files a desktop browser loads offline (game/index.html and its ES
 // modules, no library and no network request), and the program hands it in. It copies game/ and
