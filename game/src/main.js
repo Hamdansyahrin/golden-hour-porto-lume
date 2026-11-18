@@ -45,12 +45,27 @@ function paint() {
   renderer.draw(G.camera, dyn);
   hud.update(G);
   minimap.draw(G);
+  // Read-only debug/state hook for playtest verification (alongside __shotReady):
+  // a plain snapshot of where Rui is and what the game thinks is happening. The
+  // game never reads it back; it exists so a human or a test harness driving a
+  // real browser can confirm state without scraping pixels.
+  window.__ghState = {
+    x: G.player.x, z: G.player.z, heading: G.player.heading,
+    inVehicle: G.player.mode === 'car',
+    speed: G.player.mode === 'car' ? G.playerCar.speed : G.player.speed,
+    wanted: G.wanted, seen: !!G.seen, stage: G.stage, money: G.money,
+    screen: G.screen, time: G.time,
+  };
 }
 
 /** One fixed simulation step of the whole world (no rendering). */
 function stepWorld(dt, input) {
   G.time += dt;
-  if (G.screen === 'play') updatePlayer(G, input, dt);
+  if (G.screen === 'play') {
+    // One E press, one action: if the car took the press, the mission must not
+    // spend it a second time in the same step.
+    if (updatePlayer(G, input, dt)) G.interactPressed = false;
+  }
   updateTraffic(G, dt);
   updatePolice(G, dt);
   updatePeds(G, dt);

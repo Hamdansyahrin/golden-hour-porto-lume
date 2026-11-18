@@ -155,10 +155,11 @@ export function createGameState(colliders) {
     colliders,
     camera: { x: -52, y: 9, z: 30, yaw: 0.6, pitch: -0.12 },
     camYaw: Math.PI - WORLD.playerCar.heading,
+    moveYaw: Math.PI - WORLD.playerCar.heading,
     interactPressed: false,
     player: {
       x: WORLD.spawn.x, z: WORLD.spawn.z, heading: -Math.PI / 2, speed: 0,
-      mode: 'foot', walkPhase: 0,
+      mode: 'foot', walkPhase: 0, moveSig: 0, moving: false,
       top: [0.12, 0.5, 0.55], trousers: [0.2, 0.2, 0.26], skin: SKIN[0], hair: HAIR[0],
       state: 'walk',
     },
@@ -196,6 +197,7 @@ function resetAfterBust(G) {
   if (G.stage === STAGE.DELIVER) G.stage = STAGE.GO;
   G.player.mode = 'foot';
   G.player.x = WORLD.spawn.x; G.player.z = WORLD.spawn.z; G.player.speed = 0;
+  G.player.moveSig = 0; G.player.moving = false;
   G.playerCar.x = WORLD.playerCar.x; G.playerCar.z = WORLD.playerCar.z;
   G.playerCar.heading = WORLD.playerCar.heading; G.playerCar.speed = 0;
   G.police.x = WORLD.policePark.x; G.police.z = WORLD.policePark.z; G.police.speed = 0;
