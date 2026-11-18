@@ -535,8 +535,8 @@ export function updatePolice(G, dt) {
 
 /**
  * ÁGUIA-1, the PMPL helicopter (P1-B). Parked on the Farol apron until CALOR 5★
- * (or a staged shot's `forced` flag) calls it up; then it climbs to a 26 m hover
- * ahead of Rui and off his left shoulder and lerps to stay over his area,
+ * (or a staged shot's `forced` flag) calls it up; then it climbs to an 18 m hover
+ * well ahead of Rui and off his left shoulder and lerps to stay over his area,
  * spotlight pinned to him. When CALOR falls it flies home and lands — it never
  * pops in or out.
  * All motion derives from game state and the fixed step: the rotor phase is
@@ -552,18 +552,29 @@ export function updateHeli(G, dt) {
 
   let tx, ty, tz, rate;
   if (h.state === 'active') {
-    // On station AHEAD of Rui and off his left shoulder: 12 m ahead, 6 m to the
-    // side, 26 m up. The first P1-B cut hovered 7 m BEHIND him at 28 m, so in
-    // real play the airframe only ever sat behind the chase camera and its
-    // spotlight raked in from behind; ahead and to the side, ÁGUIA-1 holds
-    // station over the road Rui is driving into, its cone and light pool in
-    // his forward view. (cos h, sin h) is the heading's right vector, so
+    // On station well AHEAD of Rui and off his left shoulder: 24 m ahead, 7 m
+    // to the side, 18 m up. The first P1-B cut hovered 7 m BEHIND him at 28 m,
+    // so in real play the airframe only ever sat behind the chase camera; the
+    // second cut (12 m ahead, 26 m up) still left it ~28° above the chase
+    // camera's top edge in live play — the player saw only the spotlight cone
+    // and pool. At 24 m ahead / 18 m up the airframe sits inside the eased
+    // 5★ chase frame (player.js), over the road Rui is driving into, its cone
+    // slanting back onto him. (cos h, sin h) is the heading's right vector, so
     // subtracting it puts the heli on his left — the Farol side of a westbound
     // run down the boulevard.
     const [fx, fz] = forwardOf(t.heading);
-    tx = t.x + fx * 12 - Math.cos(t.heading) * 6;
-    tz = t.z + fz * 12 - Math.sin(t.heading) * 6;
-    ty = 26; rate = 1.7;
+    tx = t.x + fx * 24 - Math.cos(t.heading) * 7;
+    tz = t.z + fz * 24 - Math.sin(t.heading) * 7;
+    ty = 18; rate = 1.7;
+    // Rooftop guard: 18 m clears every ordinary roof (the tallest pitched
+    // ridge in town is ~17.8 m) once ON station, and the station itself is
+    // player-relative, so it always hangs over Rui's road, never over a
+    // block. But the lerp ACROSS blocks to a new station can cross rooftops,
+    // and the Farol and clock tower stand 23.4 m tall — so, exactly as the
+    // return leg stays high until it is over the pad, a transit that is
+    // still far from its station flies at 25 m and only settles to 18 m for
+    // the final approach over the road.
+    if (Math.hypot(tx - h.x, tz - h.z) > 12) ty = 25;
     // The spotlight tracks Rui himself, tighter than the airframe follows.
     h.spotX += (t.x - h.spotX) * Math.min(1, dt * 6);
     h.spotZ += (t.z - h.spotZ) * Math.min(1, dt * 6);
