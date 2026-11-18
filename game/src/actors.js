@@ -705,6 +705,9 @@ export function paintHeli(b, heli) {
 
 export function updatePeds(G, dt) {
   for (const ped of G.peds) {
+    // Escort peds (P1-D, Dona Amélia) are walked by updateMission in
+    // missions.js — threat, flee and path logic here must not touch them.
+    if (ped.escort) continue;
     if (ped.stationary) { ped.walkPhase += dt * 0; continue; }
     // Threat check: a fast car close by, or a fresh crime witnessed up close.
     let threat = null;

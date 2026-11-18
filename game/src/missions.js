@@ -1,9 +1,16 @@
-// Golden Hour's game state and its one P0 story job, "O Pacote do Festival", plus the
-// CALOR wanted system. Rui lifts a package from a festival stall on Rua das Flores — a
-// crime, if anyone sees it — and delivers it to Dona Pilar's garage on the boulevard.
+// Golden Hour's game state, its story chain and the CALOR wanted system. P1-D
+// generalises the one P0 job into a chain of four missions (the MISSIONS table
+// below), accepted one at a time from their givers: M1 "O Pacote do Festival"
+// (Rui lifts a package from a festival stall on Rua das Flores — a crime, if
+// anyone sees it — and delivers it to Dona Pilar's garage), M2 "A Encomenda das
+// Docas" (a timed, perfectly legal lantern-oil pickup), M3 "A Escolta de Dona
+// Amélia" (walk the committee chair up Avenida Leste, staying close) and M4 "As
+// Luzes do Festival" (collect three light crates and return them to the stall).
+// Between missions Porto Lume is free: repeatable supply runs leave from the
+// stall and Dona Pilar's garage tunes the Vela (see the shop section below).
 // The PMPL's CALOR meter (1–5 stars) rises on witnessed crime and on ramming under
 // pursuit, and falls only while nobody can see Rui. If a patrol car holds contact
-// with a slow Rui for three seconds, he is detained and the job resets to the stall.
+// with a slow Rui for three seconds, he is detained and the current job resets.
 //
 // ============================================================================
 // CALOR — the 5-star ladder (P1-B). The level is a response doctrine, not just
@@ -46,8 +53,92 @@ import { WORLD, headingTo } from './city.js';
 import { createRng } from './random.js';
 import { BOULEVARD_LOOP, SIDE_LOOP, NORTH_LOOP, SOUTH_LOOP, WEST_LOOP, OUTER_LOOP, DOCAS_LOOP } from './actors.js';
 
-export const STAGE = { GO: 1, DELIVER: 2, FREE: 4 };
+export const STAGE = { GO: 1, DELIVER: 2, FREE: 4, ESCORT: 5, COLLECT: 6 };
 export const PAYMENT = 450;
+
+/**
+ * The story chain (P1-D). G.missionIdx is the NEXT mission to run (0-based);
+ * G.completed counts the finished ones; when missionIdx reaches
+ * MISSIONS.length the chain is complete and Porto Lume stays FREE. M1 is the
+ * opening job: it starts active at GO with no giver to accept from (as in P0).
+ * Every later mission is accepted at its giver (stage FREE, E at the marker),
+ * opens its intro card, and only starts — timers included — when the card is
+ * dismissed. `timer` is the accept-to-deliver budget in seconds for the timed
+ * missions (null for the others); `doneSay` is the giver's line on delivery,
+ * `doneStory` the completion card's story text and `donePay` its payout suffix.
+ */
+export const MISSIONS = [
+  {
+    id: 'pacote', title: 'O Pacote do Festival', giver: 'Dona Pilar Andrade', payout: 450, timer: null,
+    intro: '',
+    doneWho: 'Dona Pilar',
+    doneSay: '“Boa, Rui. Quatrocentos e cinquenta lumes. A dívida encolhe — e a luz ainda dura.”',
+    doneStory: 'O pacote chegou à garagem de Dona Pilar.',
+    donePay: 'A dívida do teu pai encolhe. Porto Lume respira — por agora.',
+    job: '<b>Trabalho 1 — O Pacote do Festival:</b> levanta o pacote da banca do festival na Rua das Flores e entrega-o na garagem de Dona Pilar, na avenida. A Polícia Municipal de Porto Lume (PMPL) está a ver — o CALOR sobe quando te veem cometer o crime.',
+  },
+  {
+    id: 'docas', title: 'A Encomenda das Docas', giver: 'Dona Pilar Andrade', payout: 600, timer: 300,
+    intro: 'O azeite das lanternas do festival nunca chegou ao porto. Há uma caixa à espera no cais das Docas, junto aos contentores — vai buscá-la a pé e traz-ma para a garagem antes que o prazo passe. E ouve, Rui: é carga legal. Ninguém te pode acusar de transportar azeite.',
+    doneWho: 'Dona Pilar',
+    doneSay: '“Seiscentos lumes, Rui. As lanternas têm azeite — e desta vez ninguém te pode apontar o dedo.”',
+    doneStory: 'A caixa de azeite das lanternas chegou à garagem, dentro do prazo.',
+    donePay: 'As lanternas do festival já têm azeite. A dívida encolhe mais um pouco.',
+    job: '<b>Trabalho 2 — A Encomenda das Docas:</b> a caixa de azeite das lanternas espera nas Docas. Levanta-a e entrega-a na garagem de Dona Pilar antes que o prazo passe — carga legal, sem CALOR pelo levantamento.',
+  },
+  {
+    id: 'escolta', title: 'A Escolta de Dona Amélia', giver: 'Dona Amélia Furtado', payout: 550, timer: null,
+    intro: 'Dona Amélia Furtado, presidente da comissão do festival, espera no topo norte da Avenida Leste. Quer chegar às bancas da Rua das Flores a pé, como manda a tradição — mas não sozinha. Acompanha-a de perto: se te afastares mais de uns passos largos, ela pára e espera por ti.',
+    doneWho: 'Dona Amélia',
+    doneSay: '“Quinhentos e cinquenta lumes, Rui. Um cavalheiro — a comissão agradece.”',
+    doneStory: 'Dona Amélia chegou às bancas do festival pelo braço de Rui.',
+    donePay: 'A presidente da comissão chegou inteira. A dívida encolhe mais um pouco.',
+    job: '<b>Trabalho 3 — A Escolta de Dona Amélia:</b> Dona Amélia espera no topo da Avenida Leste. Acompanha-a a pé até às bancas do festival, sem te afastares dela.',
+  },
+  {
+    id: 'luzes', title: 'As Luzes do Festival', giver: 'Sr. Baltazar', payout: 800, timer: 420,
+    intro: 'O Sr. Baltazar, o homem da banca, perdeu três caixas de luzes do festival pela cidade: uma no cais do Farol, uma na Praça do Relógio e uma nas Docas. Recolhe as três — a pé ou de carro, basta passar perto — e devolve-as à banca antes que o prazo passe. Sem luzes, não há festival.',
+    doneWho: 'Sr. Baltazar',
+    doneSay: '“Oitocentos lumes! As luzes voltaram, Rui — o festival está salvo!”',
+    doneStory: 'As três caixas de luzes voltaram à banca e o festival acende-se ao pôr-do-sol.',
+    donePay: 'O festival está salvo — e a dívida do teu pai, finalmente, está paga.',
+    job: '<b>Trabalho 4 — As Luzes do Festival:</b> três caixas de luzes perderam-se pela cidade — Farol, Praça do Relógio e Docas. Recolhe-as e devolve-as à banca do Sr. Baltazar antes que o prazo passe.',
+  },
+];
+
+/** Where each mission is accepted from: M2 at the garage door, M3 at Dona Amélia's corner, M4 (and M1's stall) at the banca. */
+export function giverPoint(idx) {
+  if (idx === 1) return { x: WORLD.garage.x, z: WORLD.garage.z };
+  if (idx === 2) return { x: 24.7, z: -48 };
+  return { x: WORLD.stall.x, z: WORLD.stall.z };
+}
+
+/** The mission G is currently on (or null once the chain is complete). */
+export function currentMission(G) {
+  return MISSIONS[G.missionIdx] ?? null;
+}
+
+/** M4's three light crates: Farol apron, Praça do Relógio, Docas apron. */
+export const LIGHT_CRATES = [
+  { x: -66, z: -20 },
+  { x: 35, z: -50 },
+  { x: -38, z: 45 },
+];
+
+/** M3's walk: Dona Amélia strolls the east sidewalk from the north end to the stalls. */
+export const ESCORT_FROM = { x: 24.7, z: -48 };
+export const ESCORT_TO = { x: 24.7, z: 20 };
+export const ESCORT_SPEED = 1.35;
+export const ESCORT_RANGE = 14;
+
+/** Side-run destinations (item 2b), rotated by the completed-run counter. */
+export const SIDE_DESTS = [
+  { x: -38, z: 45, name: 'Docas' },
+  { x: 35, z: -50, name: 'Praça do Relógio' },
+  { x: 55, z: 13.5, name: 'Garagem de Dona Pilar' },
+];
+export const SIDE_PAY = 120;
+export const SIDE_COOLDOWN = 90;
 
 /** Unseen seconds needed to shed one star, indexed by current CALOR level. */
 export const DECAY_SECONDS = { 1: 8, 2: 9, 3: 11, 4: 13, 5: 15 };
@@ -259,11 +350,147 @@ export function createGameState(colliders) {
     money: 0, stage: STAGE.GO, carrying: false,
     prompt: null, dialogue: null, nearCar: false,
     markerX: WORLD.stall.x, markerZ: WORLD.stall.z,
+    // P1-D chain state: missionIdx is the next mission to run, completed the
+    // finished count, timer the seconds left on a timed mission (null = no
+    // clock). cargo names what Rui carries ('pacote' | 'azeite' |
+    // 'mantimentos'); `carrying` stays as its boolean mirror for the staged
+    // shots and older readers — setCargo keeps the two in step, and a bare
+    // carrying=true with cargo null (how shots.js stages M1) reads as the
+    // M1 package. crates/collected are M4's scratch, escort* M3's.
+    missionIdx: 0, completed: 0, timer: null,
+    cargo: null, crates: [], collected: 0,
+    escort: null, escortWait: false, escortHint: false,
+    // P1-D economy state: side-run cooldown/counter/destination, the garage
+    // shop (open flag + selected menu row) and the one-shot confirm latch
+    // main.js fills while the shop is open, plus the Vela's upgrades.
+    sideCd: 0, sideRuns: 0, sideDest: null,
+    shopOpen: false, shopSel: 0, confirmPressed: false,
+    upgrades: { paint: 0, tune: false, bumper: false },
+    // P1-D card/save state: card is the intro/fail card hud.js renders while
+    // screen==='card'; lastDone feeds the completion card; saveLoaded marks
+    // a restored browser save (item 3).
+    card: null, lastDone: null, saveLoaded: false,
   };
 }
 
 function say(G, who, text, seconds = 6) {
   G.dialogue = { who, text, until: G.time + seconds };
+}
+
+/** Set what Rui carries, keeping the boolean `carrying` mirror in step. */
+export function setCargo(G, kind) {
+  G.cargo = kind;
+  G.carrying = kind != null;
+}
+
+/** Is Rui carrying anything? (A staged carrying=true with cargo null counts: it is the M1 package.) */
+export function hasCargo(G) {
+  return G.carrying || G.cargo != null;
+}
+
+/** Open the current mission's intro card. The mission itself starts only when the card is dismissed. */
+function openIntro(G) {
+  const def = currentMission(G);
+  if (!def) return;
+  G.card = {
+    kicker: `Trabalho ${G.missionIdx + 1} · ${def.giver}`,
+    title: def.title,
+    body: def.intro,
+    go: 'COMEÇAR — prime ENTER',
+    action: 'start',
+  };
+  G.screen = 'card';
+}
+
+/** Spawn Dona Amélia as an escort ped: updatePeds skips escort peds; updateMission walks her. */
+function spawnEscort(G) {
+  const ped = {
+    x: ESCORT_FROM.x, z: ESCORT_FROM.z, heading: 0, speed: ESCORT_SPEED,
+    path: [[ESCORT_FROM.x, ESCORT_FROM.z], [ESCORT_TO.x, ESCORT_TO.z]], wp: 1, dir: 1,
+    state: 'walk', fleeT: 0, threatX: 0, threatZ: 0,
+    walkPhase: 0, stationary: false,
+    behavior: 'walk', pauseT: 0, pauseDur: 0,
+    top: [0.45, 0.12, 0.2], trousers: [0.25, 0.25, 0.35],
+    skin: SKIN[1], hair: HAIR[2],
+    escort: true,
+  };
+  G.peds.push(ped);
+  G.escort = ped;
+  G.escortWait = false;
+  G.escortHint = false;
+}
+
+/**
+ * Begin the current mission (called by main.js when the intro card is
+ * dismissed). This is the moment timers start — accepting a job costs no
+ * time until Rui says go.
+ */
+export function startMission(G) {
+  const def = currentMission(G);
+  if (!def) return;
+  G.card = null;
+  if (def.id === 'docas') {
+    G.stage = STAGE.GO;
+    G.timer = def.timer;
+    say(G, 'Dona Pilar', '“O relógio está a contar, Rui. Trezentos segundos — e é só azeite, desta vez.”');
+  } else if (def.id === 'escolta') {
+    G.stage = STAGE.ESCORT;
+    spawnEscort(G);
+    say(G, 'Dona Amélia', '“Devagar e ao meu lado, Rui. A avenida é longa para uma senhora.”');
+  } else if (def.id === 'luzes') {
+    G.stage = STAGE.COLLECT;
+    G.timer = def.timer;
+    G.collected = 0;
+    G.crates = LIGHT_CRATES.map((c) => ({ x: c.x, z: c.z, taken: false }));
+    say(G, 'Sr. Baltazar', '“Três caixas, Rui: Farol, Praça do Relógio e Docas. E de volta à minha banca!”');
+  } else {
+    G.stage = STAGE.GO;
+  }
+}
+
+/**
+ * Finish the current mission: the payout lands exactly once because every
+ * caller reaches here through the phase transition that also leaves the
+ * phase (stage becomes FREE), so a second step cannot pay again.
+ */
+function completeMission(G) {
+  const def = currentMission(G);
+  if (!def) return;
+  G.money += def.payout;
+  G.completed += 1;
+  G.missionIdx += 1;
+  G.timer = null;
+  setCargo(G, null);
+  G.collected = 0;
+  G.crates = [];
+  G.lastDone = {
+    title: def.title, payout: def.payout, story: def.doneStory, payText: def.donePay,
+    chain: def.id === 'luzes',
+  };
+  G.stage = STAGE.FREE;
+  G.screen = 'done';
+  // D2: only M1's delivery stands the patrol down — it is the one delivery
+  // the PMPL was ever chasing.
+  if (def.id === 'pacote') G.cooldownT = 5;
+  say(G, def.doneWho, def.doneSay, 9);
+}
+
+/** A timed mission's clock ran out: no bust, no payout, no CALOR change — just the fail card and a retry at the giver. */
+function failMission(G) {
+  const def = currentMission(G);
+  G.timer = null;
+  setCargo(G, null);
+  G.collected = 0;
+  G.crates = [];
+  G.stage = STAGE.FREE;
+  G.card = {
+    kicker: 'Trabalho falhado',
+    title: def ? def.title : 'O trabalho',
+    body: 'O prazo passou e o trabalho perdeu-se. Volta a falar com quem to deu — o trabalho continua aberto, à mesma hora dourada.',
+    go: 'CONTINUAR — prime ENTER',
+    action: 'fail',
+  };
+  G.screen = 'card';
 }
 
 /** Did anyone see the crime at (x, z)? Pedestrians close by, or any unit within earshot of its radio. */
@@ -292,13 +519,39 @@ export function anyPoliceLOS(G) {
   return false;
 }
 
+/**
+ * Bust reset (P1-D generalised): money, completed missions and upgrades are
+ * KEPT; the current mission returns to its not-started state and Rui, the
+ * Vela and the fleet go back to their starts. A mission in progress goes
+ * back to stage FREE with the marker on its giver, so the retry is a fresh
+ * accept. The one special case is M1 before it has ever been completed: it
+ * is the opening job and needs no accept, so — exactly as P0 behaved — the
+ * stage returns straight to GO with the marker on the stall. A bust while
+ * carrying side-run supplies loses the cargo and starts a shorter cooldown.
+ */
 function resetAfterBust(G) {
   G.wanted = 0; G.bustMeter = 0; G.seenTimer = 0; G.decayClock = 0; G.cooldownT = 0;
   G.unseenT = 0; G.calorFlightT = 0; G.ramCooldownT = 0; G.bumpKind = null; G.seen = false;
   G.roadblock.active = false; G.roadblock.slots = null; G.roadblock.cooldownT = 0;
   G.heli.active = false; G.heli.state = 'return';
-  G.carrying = false;
-  if (G.stage === STAGE.DELIVER) G.stage = STAGE.GO;
+  if (G.cargo === 'mantimentos') G.sideCd = 30;
+  setCargo(G, null);
+  G.sideDest = null;
+  G.timer = null;
+  G.collected = 0;
+  G.crates = [];
+  G.shopOpen = false;
+  if (G.escort) {
+    const i = G.peds.indexOf(G.escort);
+    if (i >= 0) G.peds.splice(i, 1);
+    G.escort = null;
+  }
+  G.escortWait = false; G.escortHint = false;
+  if (G.missionIdx === 0 && G.completed === 0) {
+    G.stage = STAGE.GO;
+  } else if (G.stage !== STAGE.FREE) {
+    G.stage = STAGE.FREE;
+  }
   G.player.mode = 'foot';
   G.player.x = WORLD.spawn.x; G.player.z = WORLD.spawn.z; G.player.speed = 0;
   G.player.moveSig = 0; G.player.moving = false;
@@ -309,23 +562,49 @@ function resetAfterBust(G) {
     u.hasLOS = false; u.unseenSec = 0; u.lastKnownAge = 999;
     u.mode = u.id === 0 ? 'patrol' : 'standby'; u.holdT = 0;
   }
-  G.markerX = WORLD.stall.x; G.markerZ = WORLD.stall.z;
+  if (G.stage === STAGE.GO) { G.markerX = WORLD.stall.x; G.markerZ = WORLD.stall.z; }
+  else if (G.missionIdx < MISSIONS.length) {
+    const gp = giverPoint(G.missionIdx);
+    G.markerX = gp.x; G.markerZ = gp.z;
+  } else { G.markerX = null; G.markerZ = null; }
 }
 
-/** The mission + wanted step. Runs after actors move; spends G.interactPressed if the stall takes it. */
+/** The mission + wanted step. Runs after actors move; spends G.interactPressed if a mission takes it. */
 export function updateMission(G, dt) {
   const p = G.player;
   if (G.crimeTimer > 0) G.crimeTimer -= dt;
   if (G.bumpTimer > 0) G.bumpTimer += dt;
   if (G.bumpTimer > 1.2) G.bumpTimer = 0;
+  // Clocks that only run in live play: the side-run cooldown and the timed
+  // missions' budgets. A timer that runs out fails its mission (failMission)
+  // — no bust, no payout, no CALOR change.
+  if (G.sideCd > 0 && G.screen === 'play') G.sideCd = Math.max(0, G.sideCd - dt);
+  if (G.timer != null && G.screen === 'play') {
+    G.timer -= dt;
+    if (G.timer <= 0) failMission(G);
+  }
 
-  // --- the lift at the festival stall.
-  if (G.stage === STAGE.GO) {
+  // --- GO: the pickup end of M1 (the stall lift) and M2 (the Docas crate).
+  if (G.stage === STAGE.GO && G.missionIdx === 1) {
+    // M2: the lantern-oil crate on the Docas apron. This cargo is LEGAL —
+    // the lift is no crime, sets no crime timer and raises no CALOR.
+    const crate = LIGHT_CRATES[2]; // the Docas point (-38, 45)
+    G.markerX = crate.x; G.markerZ = crate.z;
+    const near = Math.hypot(p.x - crate.x, p.z - crate.z) < 3.1 && p.mode === 'foot';
+    G.prompt = near ? '<b>E</b> — levantar a caixa de azeite das lanternas' : null;
+    if (near && G.interactPressed && G.screen === 'play') {
+      G.interactPressed = false;
+      setCargo(G, 'azeite');
+      G.stage = STAGE.DELIVER;
+      say(G, 'Rui', 'Azeite de lanternas — carga legal. A PMPL que vá chatear outro.');
+    }
+  } else if (G.stage === STAGE.GO) {
+    // M1: the lift at the festival stall (P0 behaviour, unchanged).
     G.markerX = WORLD.stall.x; G.markerZ = WORLD.stall.z;
     const near = Math.hypot(p.x - WORLD.stall.x, p.z - WORLD.stall.z) < 3.1 && p.mode === 'foot';
     G.prompt = near ? '<b>E</b> — levantar o pacote da banca' : null;
     if (near && G.interactPressed) {
-      G.carrying = true;
+      setCargo(G, 'pacote');
       G.stage = STAGE.DELIVER;
       G.crimeTimer = 2.5; G.crimeX = WORLD.stall.x; G.crimeZ = WORLD.stall.z;
       if (witnessed(G, WORLD.stall.x, WORLD.stall.z)) {
@@ -338,21 +617,103 @@ export function updateMission(G, dt) {
     }
   }
 
-  // --- the delivery at Dona Pilar's garage.
+  // --- DELIVER: the garage end of M1 and M2. The branch completes only when
+  // Rui (his position tracks the Vela while driving) is actually inside the
+  // garage zone carrying the mission's cargo — staged shots set carrying
+  // directly, and with missionIdx 0 that reads as the M1 package, as before.
   if (G.stage === STAGE.DELIVER) {
     G.markerX = WORLD.garage.x; G.markerZ = WORLD.garage.z;
     G.prompt = null;
     const inZone = Math.abs(p.x - WORLD.garage.x) < WORLD.garage.halfX && Math.abs(p.z - WORLD.garage.z) < WORLD.garage.halfZ + 1.5;
-    if (inZone && G.carrying) {
-      G.carrying = false;
-      G.money += PAYMENT;
-      G.stage = STAGE.FREE;
-      G.screen = 'done';
-      G.cooldownT = 5; // the CALOR cools while the patrol stands down
-      say(G, 'Dona Pilar', '“Boa, Rui. Quatrocentos e cinquenta lumes. A dívida encolhe — e a luz ainda dura.”', 9);
+    if (inZone && hasCargo(G)) {
+      if (G.missionIdx === 0) completeMission(G);
+      else if (G.missionIdx === 1 && G.cargo === 'azeite') completeMission(G);
     }
   }
-  if (G.stage === STAGE.FREE) { G.markerX = null; G.prompt = G.prompt ?? null; }
+
+  // --- ESCORT (M3): Dona Amélia walks her sidewalk; Rui's nearness is the throttle.
+  if (G.stage === STAGE.ESCORT) {
+    G.prompt = null;
+    const ped = G.escort;
+    if (ped) {
+      G.markerX = ped.x; G.markerZ = ped.z;
+      const dRui = Math.hypot(p.x - ped.x, p.z - ped.z);
+      if (ped.z >= 19) {
+        // Arrived: she becomes an ordinary festival browser at the stalls
+        // and updatePeds owns her from the next step on.
+        ped.escort = false;
+        ped.path = [[24.7, 17], [24.7, 24]];
+        ped.wp = 1; ped.dir = 1;
+        ped.behavior = 'browse'; ped.pauseDur = 3; ped.pauseT = 0;
+        ped.speed = 1.3;
+        G.escort = null;
+        G.escortWait = false;
+        completeMission(G);
+      } else if (dRui <= ESCORT_RANGE) {
+        G.escortWait = false;
+        ped.heading = headingTo(ESCORT_TO.x - ped.x, ESCORT_TO.z - ped.z);
+        ped.x += -Math.sin(ped.heading) * ESCORT_SPEED * dt;
+        ped.z += Math.cos(ped.heading) * ESCORT_SPEED * dt;
+        ped.walkPhase += dt * 6.4;
+      } else {
+        if (!G.escortHint) {
+          G.escortHint = true;
+          say(G, 'Dona Amélia', '“Espera por ti… não te afastes tanto, Rui.”');
+        }
+        G.escortWait = true;
+      }
+    }
+  }
+
+  // --- COLLECT (M4): three light crates by proximity (foot or car — Rui's
+  // position tracks the Vela), then back to the stall with all three.
+  if (G.stage === STAGE.COLLECT) {
+    G.prompt = null;
+    if (G.screen === 'play') {
+      for (const c of G.crates) {
+        if (!c.taken && Math.hypot(p.x - c.x, p.z - c.z) <= 3.5) {
+          c.taken = true;
+          G.collected += 1;
+          say(G, 'Rui', `Luzes: ${G.collected}/3 — ${G.collected < 3 ? 'ainda faltam caixas por recolher.' : 'todas! De volta à banca do Sr. Baltazar.'}`);
+          break;
+        }
+      }
+    }
+    let best = null, bestD = Infinity;
+    for (const c of G.crates) {
+      if (c.taken) continue;
+      const d = Math.hypot(p.x - c.x, p.z - c.z);
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    if (best) { G.markerX = best.x; G.markerZ = best.z; }
+    else {
+      G.markerX = WORLD.stall.x; G.markerZ = WORLD.stall.z;
+      if (G.screen === 'play' && Math.hypot(p.x - WORLD.stall.x, p.z - WORLD.stall.z) <= 3.5) {
+        completeMission(G);
+      }
+    }
+  }
+
+  // --- FREE: between missions the marker sits on the next giver; E at the
+  // giver opens the intro card (the mission starts when the card closes).
+  if (G.stage === STAGE.FREE) {
+    G.prompt = null;
+    const def = currentMission(G);
+    if (!def) {
+      G.markerX = null; G.markerZ = null;
+    } else {
+      const gp = giverPoint(G.missionIdx);
+      G.markerX = gp.x; G.markerZ = gp.z;
+      if (G.missionIdx > 0 && G.screen === 'play' && p.mode === 'foot'
+        && Math.hypot(p.x - gp.x, p.z - gp.z) < 3.1) {
+        G.prompt = `<b>E</b> — aceitar o trabalho: ${def.title}`;
+        if (G.interactPressed) {
+          G.interactPressed = false;
+          openIntro(G);
+        }
+      }
+    }
+  }
 
   // --- CALOR: escalation, sight, decay (rules R1–R4 / D1–D2 in the header).
   if (G.ramCooldownT > 0) G.ramCooldownT -= dt;
@@ -432,4 +793,100 @@ export function updateMission(G, dt) {
   else if (Math.abs(p.x - WORLD.eastStreet.x) < 9) G.district = 'AVENIDA LESTE';
   else if (Math.abs(p.x - WORLD.sideStreet.x) < 9) G.district = 'RUA DAS FLORES';
   else G.district = 'AVENIDA DO FAROL · PORTO LUME';
+}
+
+/**
+ * The mission card's view of the chain (hud.js renders exactly this):
+ * { kicker, title, obj, next } for the current mission and phase. A side
+ * run in progress takes precedence over the FREE text; the timer readout
+ * itself is hud.js's job (it appends the clock when G.timer is live).
+ */
+export function missionView(G) {
+  if (G.cargo === 'mantimentos' && G.sideDest) {
+    return {
+      kicker: 'Corrida de mantimentos · Sr. Baltazar',
+      title: 'Mantimentos do Festival',
+      obj: `Entrega os mantimentos nas ${G.sideDest.name} (marcador dourado).`,
+      next: 'Corrida livre e legal: sem CALOR — só os 120 lumes à chegada.',
+    };
+  }
+  const def = currentMission(G);
+  if (!def) {
+    return {
+      kicker: 'Festival salvo · Porto Lume',
+      title: 'Porto Lume em Festa',
+      obj: 'A cadeia de trabalhos está feita e o festival acende-se. Porto Lume é tua para passear — a pé ou no Vela Sprint.',
+      next: 'Corridas de mantimentos na banca do Sr. Baltazar e a garagem de Dona Pilar continuam abertas.',
+    };
+  }
+  const kicker = `Trabalho ${G.missionIdx + 1} · ${def.giver}`;
+  const title = def.title;
+  if (G.stage === STAGE.GO && def.id === 'docas') {
+    return {
+      kicker, title,
+      obj: 'Vai às Docas e levanta a caixa de azeite das lanternas no cais (marcador dourado).',
+      next: 'Carga legal: o levantamento não levanta CALOR. Entrega na garagem antes do prazo.',
+    };
+  }
+  if (G.stage === STAGE.GO) {
+    return {
+      kicker, title,
+      obj: 'Levanta o pacote da banca do festival na Rua das Flores (marcador dourado).',
+      next: 'Depois: foge à PMPL e entrega na garagem de Dona Pilar.',
+    };
+  }
+  if (G.stage === STAGE.DELIVER && def.id === 'docas') {
+    return {
+      kicker, title,
+      obj: 'Entrega a caixa de azeite na garagem de Dona Pilar, na Avenida do Farol.',
+      next: 'O prazo continua a contar até a caixa entrar na garagem.',
+    };
+  }
+  if (G.stage === STAGE.DELIVER) {
+    return {
+      kicker, title,
+      obj: 'Entrega o pacote na garagem de Dona Pilar, na Avenida do Farol.',
+      next: 'O CALOR só arrefece fora da vista da patrulha e das testemunhas.',
+    };
+  }
+  if (G.stage === STAGE.ESCORT) {
+    const ped = G.escort;
+    const d = ped ? Math.round(Math.hypot(G.player.x - ped.x, G.player.z - ped.z)) : 0;
+    return {
+      kicker, title,
+      obj: G.escortWait
+        ? `Dona Amélia parou e espera por ti — está a ${d} m. Aproxima-te para ela continuar.`
+        : `Acompanha Dona Amélia pela Avenida Leste até às bancas (a ${d} m de ti).`,
+      next: 'Ela só anda enquanto estiveres a menos de 14 m dela.',
+    };
+  }
+  if (G.stage === STAGE.COLLECT) {
+    return {
+      kicker, title,
+      obj: G.collected >= 3
+        ? 'As três caixas estão contigo. Devolve-as à banca do Sr. Baltazar na Rua das Flores.'
+        : `Recolhe as caixas de luzes do festival: ${G.collected}/3 recolhidas (o marcador aponta a mais perto).`,
+      next: 'Farol, Praça do Relógio e Docas — e o prazo a contar.',
+    };
+  }
+  // FREE.
+  if (G.missionIdx === 0) {
+    // Only a staged frame sits at FREE on mission 1 (the delivery shot):
+    // keep the P0 free-roam text there.
+    return {
+      kicker, title,
+      obj: 'Trabalho feito. Porto Lume é tua para passear — a pé ou no Vela Sprint.',
+      next: 'Dona Pilar terá outro trabalho amanhã, à mesma hora dourada.',
+    };
+  }
+  const gp = giverPoint(G.missionIdx);
+  const place = G.missionIdx === 1 ? 'na garagem, na Avenida do Farol'
+    : G.missionIdx === 2 ? 'no topo norte da Avenida Leste'
+    : 'na banca da Rua das Flores';
+  void gp;
+  return {
+    kicker, title,
+    obj: `Fala com ${def.giver} ${place} para aceitar: ${def.title}.`,
+    next: 'Entretanto: corridas de mantimentos na banca e a garagem de Dona Pilar estão abertas.',
+  };
 }

@@ -14,7 +14,7 @@
 import { createCity } from './city.js';
 import { createRenderer, MeshBuilder } from './engine.js';
 import { createInput } from './input.js';
-import { createGameState, updateMission } from './missions.js';
+import { createGameState, updateMission, startMission, currentMission } from './missions.js';
 import { updatePlayer, setCameraLook } from './player.js';
 import { paintCar, paintPerson, paintMarker, paintHeli, updateTraffic, updatePolice, updatePeds, updateHeli, collideCars } from './actors.js';
 import { createHud } from './hud.js';
@@ -46,6 +46,14 @@ function paint() {
   paintHeli(dyn, G.heli);
   for (const ped of G.peds) paintPerson(dyn, ped);
   if (G.player.mode === 'foot') paintPerson(dyn, G.player);
+  // M4's light crates (P1-D): a small emissive crate at each uncollected
+  // point, bobbing gently on sim time like the mission marker does.
+  for (let i = 0; i < G.crates.length; i++) {
+    const c = G.crates[i];
+    if (c.taken) continue;
+    const bob = Math.sin(G.time * 2.2 + i * 1.7) * 0.08;
+    dyn.box(c.x, 0.62 + bob, c.z, 0.72, 0.72, 0.72, G.time * 0.7 + i, [1, 0.75, 0.25], { emissive: true });
+  }
   if (G.markerX !== null && G.markerX !== undefined && G.screen === 'play') paintMarker(dyn, G.markerX, G.markerZ, G.time);
   renderer.draw(G.camera, dyn);
   hud.update(G);
@@ -87,7 +95,14 @@ function paint() {
       speed: r2(G.player.mode === 'car' ? G.playerCar.speed : G.player.speed),
       inVehicle: G.player.mode === 'car',
     },
-    mission: { stage: G.stage, carrying: G.carrying, money: G.money },
+    mission: {
+      idx: G.missionIdx, id: currentMission(G)?.id ?? null, title: currentMission(G)?.title ?? null,
+      stage: G.stage, carrying: G.carrying, money: G.money,
+      timer: G.timer != null ? Math.round(G.timer) : null,
+      collected: G.collected, completed: G.completed,
+    },
+    upgrades: { paint: G.upgrades.paint, tune: G.upgrades.tune, bumper: G.upgrades.bumper },
+    shopOpen: G.shopOpen, saveLoaded: G.saveLoaded,
   };
 }
 
@@ -106,6 +121,7 @@ function stepWorld(dt, input) {
   collideCars(G, dt);
   updateMission(G, dt);
   G.interactPressed = false;
+  G.confirmPressed = false;
 }
 
 function runShot(name) {
@@ -142,7 +158,19 @@ function runGame() {
     accumulator += Math.min((now - last) / 1000, MAX_FRAME);
     last = now;
     if (input.takeConfirm()) {
-      if (G.screen === 'title' || G.screen === 'busted' || G.screen === 'done') G.screen = 'play';
+      if (G.shopOpen) {
+        // While the garage shop is open, ENTER belongs to the shop: latch it
+        // for updateMission (stepWorld clears it at the end of the step).
+        G.confirmPressed = true;
+      } else if (G.screen === 'title' || G.screen === 'busted' || G.screen === 'done') {
+        G.screen = 'play';
+      } else if (G.screen === 'card') {
+        // Dismissing an intro card starts its mission (timers included);
+        // dismissing a fail card just returns to the street.
+        if (G.card && G.card.action === 'start') startMission(G);
+        G.card = null;
+        G.screen = 'play';
+      }
     }
     if (G.screen === 'title') {
       // Title backdrop (P1-C framing): the same slow drift over the boulevard,
