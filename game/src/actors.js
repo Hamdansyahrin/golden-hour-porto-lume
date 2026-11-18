@@ -1,7 +1,9 @@
-// Porto Lume's actors: how cars and people are drawn (procedural low-poly meshes rebuilt
-// each frame into the dynamic buffer) and how the simple traffic, the PMPL patrol/pursuit
-// car and the sidewalk pedestrians behave. Rui himself is controlled from player.js; this
-// module only paints him.
+// Porto Lume's actors: how cars and people are drawn (procedural low-poly meshes
+// rebuilt each frame into the dynamic buffer) and how they behave — the traffic
+// loops, the four-car PMPL fleet (patrol / pursuit / intercept / search /
+// roadblock tactics driven by CALOR, with throttled line-of-sight), the ÁGUIA-1
+// helicopter and the sidewalk pedestrians. Rui himself is controlled from
+// player.js; this module only paints him.
 
 import { WORLD, ROAD_BANDS, collide, clampWorld, forwardOf, headingTo, wrapAngle, losBlocked } from './city.js';
 

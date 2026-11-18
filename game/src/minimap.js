@@ -1,9 +1,10 @@
 // The circular minimap: a canvas dial, north up, that projects Porto Lume's road
 // network (the boulevard, Rua das Flores and the P1-A grid around them), the Farol,
 // the clock tower and the dry canal, plus a blip for every actor — Rui (white arrow),
-// the PMPL patrol (flashing blue/red), traffic (pale dots), pedestrians (tiny sand
-// dots) and the gold mission target. A search ring pulses around Rui while the CALOR
-// is up and he is out of sight.
+// the PMPL units (flashing blue/red on white halos), ÁGUIA-1 (a rimmed gold diamond
+// while airborne), traffic (pale dots), pedestrians (tiny sand dots) and the gold
+// mission target. A search ring pulses around Rui while the CALOR is up and he is
+// out of sight.
 
 import { ROAD_BANDS, WORLD } from './city.js';
 

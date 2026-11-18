@@ -3,9 +3,13 @@
 // paints the static city plus the actors rebuilt each frame. Screens: title, play,
 // detained (busted) and job-done, all over the live 3D scene.
 //
-// ?shot=boxin|foot|deliver (with &seed=N) stages a deterministic scene instead of running
-// the loop, paints it twice and sets window.__shotReady for the screenshot harness —
-// see shots.js and shots.json. The staging path never reads the clock or Math.random.
+// ?shot=boxin|foot|deliver|roadblock|heli stages a deterministic scene instead
+// of running the loop, paints it twice and sets window.__shotReady for the
+// screenshot harness — see shots.js and shots.json. (The &seed=N in the
+// shots.json URLs is a harness label only: the game never reads it — the city
+// and state seeds are fixed constants, which is what makes every staging
+// byte-identical.) The staging path never reads the clock or any unseeded
+// random source.
 
 import { createCity } from './city.js';
 import { createRenderer, MeshBuilder } from './engine.js';

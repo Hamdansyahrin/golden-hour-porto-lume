@@ -1,7 +1,8 @@
 // The HUD: DOM panels driven by game state — the mission card, the CALOR star meter with
-// its sight state, the money purse, the vehicle card, prompts, dialogue and the card
-// overlays for title / detained / job-done. Text is only rewritten when it changes, so a
-// frame allocates nothing in the steady state.
+// its sight state, the money purse, the vehicle card with its speedometer, the bust
+// meter, prompts, dialogue and the card overlays for title / detained / job-done.
+// Text is only rewritten when it changes, so a frame allocates nothing in the
+// steady state.
 
 import { STAGE, CALOR_LABEL } from './missions.js';
 import { WORLD } from './city.js';
