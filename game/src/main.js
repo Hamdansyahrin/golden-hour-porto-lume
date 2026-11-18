@@ -98,7 +98,7 @@ function runGame() {
       // A slow golden-hour drift over the boulevard toward the Farol while the card is up.
       G.time += 1 / 60;
       const t = G.time;
-      setCameraLook(G, -8 + Math.cos(t * 0.05) * 11, 9.5, 17.5 + Math.sin(t * 0.05) * 3, 16, 1.5, -4);
+      setCameraLook(G, -4 + Math.cos(t * 0.05) * 9, 8.5, 1.5 + Math.sin(t * 0.05) * 2.5, 20, 1.5, -2);
       updateTraffic(G, 1 / 60);
       updatePeds(G, 1 / 60);
       accumulator = 0;
