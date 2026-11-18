@@ -49,13 +49,41 @@ function paint() {
   // Read-only debug/state hook for playtest verification (alongside __shotReady):
   // a plain snapshot of where Rui is and what the game thinks is happening. The
   // game never reads it back; it exists so a human or a test harness driving a
-  // real browser can confirm state without scraping pixels.
+  // real browser can confirm state without scraping pixels. P1-B extends it with
+  // the full CALOR/LOS/fleet/heli picture a validator needs (plain reads only).
+  const r2 = (v) => Math.round(v * 100) / 100;
   window.__ghState = {
     x: G.player.x, z: G.player.z, heading: G.player.heading,
     inVehicle: G.player.mode === 'car',
     speed: G.player.mode === 'car' ? G.playerCar.speed : G.player.speed,
     wanted: G.wanted, seen: !!G.seen, stage: G.stage, money: G.money,
     screen: G.screen, time: G.time,
+    calor: G.wanted,
+    losState: {
+      vista: !!G.seen,
+      foraDeVista: G.wanted > 0 && !G.seen,
+      unseenSeconds: r2(G.unseenT),
+    },
+    police: G.policeUnits.map((u) => ({
+      id: u.id, name: u.name, mode: u.mode, active: u.active,
+      hasLOS: u.hasLOS,
+      lastKnown: { x: r2(u.lastKnownX), z: r2(u.lastKnownZ) },
+      x: r2(u.x), z: r2(u.z),
+    })),
+    roadblock: {
+      active: G.roadblock.active,
+      cx: r2(G.roadblock.cx), cz: r2(G.roadblock.cz),
+    },
+    heli: {
+      active: G.heli.active, state: G.heli.state,
+      position: { x: r2(G.heli.x), y: r2(G.heli.y), z: r2(G.heli.z) },
+    },
+    player: {
+      pos: { x: r2(G.player.x), z: r2(G.player.z) },
+      speed: r2(G.player.mode === 'car' ? G.playerCar.speed : G.player.speed),
+      inVehicle: G.player.mode === 'car',
+    },
+    mission: { stage: G.stage, carrying: G.carrying, money: G.money },
   };
 }
 
