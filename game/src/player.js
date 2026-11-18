@@ -20,23 +20,23 @@ export const ENTER_RADIUS = 4.6;
 const CAM_TURN_RATE = 1.15;
 const CAM_DEADBAND = 0.06;
 
-/** P1-A chase framing (in-vehicle): anchor distance behind the Vela, anchor height. */
+/** P1-A chase framing (in-vehicle): distance behind the Vela, camera height, look height. */
 const CHASE_DIST = 10.2;
 const CHASE_CAM_Y = 3.6;
 const CHASE_LOOK_Y = 1.3;
 /**
- * 5★ chase framing while ÁGUIA-1 is airborne (P1-B fix #2): the same framing
- * pulled back to 12.5 m, the anchor height scaled up in proportion
- * (3.6 × 12.5 / 10.2 ≈ 4.41 m) and the pitch eased from the P1-A −12.7° to
- * −5°, which is what brings the heli — on station 24 m ahead of Rui at 18 m —
- * down into the top of the frame. The look height is not a constant here: it
- * is derived from the eased pitch (see updatePlayer), so the car drops
- * slightly in frame as the view tilts up toward the airframe.
+ * Pulled-back framing used while ÁGUIA-1 is up (P1-B fix #2, 5★ only): the
+ * camera backs off to 12.5 m and its height scales with that distance —
+ * 3.6 × 12.5 / 10.2 gives 4.41 m — while the pitch eases to −5°. Together
+ * those moves bring the heli, holding 24 m ahead of Rui at 18 m, into the
+ * top of the frame. There is deliberately no fixed heli look height: the
+ * look height in updatePlayer is worked out from the eased pitch, so the
+ * view genuinely tilts upward instead of just sliding its anchor higher.
  */
 const HELI_CHASE_DIST = 12.5;
 const HELI_CHASE_CAM_Y = 4.41;
 const HELI_CHASE_PITCH = -5 * Math.PI / 180;
-/** Blend rate (1/s) for the 5★ framing ease, applied symmetrically both ways. */
+/** How fast (per second) the 5★ framing blends in and back out — same rate both ways. */
 const HELI_CAM_EASE_RATE = 1.9;
 
 /** Aim the camera from a position toward a target point. */
@@ -207,14 +207,15 @@ export function updatePlayer(G, input, dt) {
   moveCar(car, dt);
   p.speed = Math.abs(car.speed);
   const [fx, fz] = forwardOf(car.heading);
-  // ÁGUIA-1 framing ease (P1-B fix #2, in-vehicle chase view only — the
-  // on-foot camera above is untouched): while the heli is airborne on station
-  // (state 'active', which includes its climb — CALOR 5★ in live play), ease
-  // the framing toward the pulled-back/raised HELI_CHASE_* values; when it
-  // stands down, ease back. heliCamEase is the 0..1 blend, lerped at the same
-  // rate in both directions so neither transition snaps, and clamped onto the
-  // exact endpoints once it is within a whisker — at ease 0 the anchor, height
-  // and look point below are the P1-A numbers themselves, bit for bit.
+  // 5★ chase-camera ease (P1-B fix #2). This branch is in-vehicle only; the
+  // on-foot camera further up is not touched. Whenever ÁGUIA-1 is airborne —
+  // heli state 'active', which covers its climb as well as time on station —
+  // blend the framing from the P1-A values toward the HELI_CHASE_* values,
+  // and blend it back when the heli stands down. G.heliCamEase holds the
+  // 0..1 blend; it moves at HELI_CAM_EASE_RATE in either direction so
+  // neither transition snaps, and it snaps onto the exact endpoint once it
+  // gets within 0.002, which is what restores the P1-A framing bit-for-bit
+  // at ease 0.
   if (G.heliCamEase === undefined) G.heliCamEase = 0;
   const easeTarget = G.heli && G.heli.state === 'active' ? 1 : 0;
   G.heliCamEase += (easeTarget - G.heliCamEase) * Math.min(1, HELI_CAM_EASE_RATE * dt);
@@ -222,8 +223,10 @@ export function updatePlayer(G, input, dt) {
   const ce = G.heliCamEase;
   const camDist = CHASE_DIST + (HELI_CHASE_DIST - CHASE_DIST) * ce;
   const camY = CHASE_CAM_Y + (HELI_CHASE_CAM_Y - CHASE_CAM_Y) * ce;
-  // Pitch eases −12.7° → −5°; the look height follows from the eased pitch so
-  // the view really tilts up (raising only the anchor would steepen it).
+  // Derive the look height from the eased pitch rather than easing the look
+  // height itself. Pitch runs from the P1-A angle up to HELI_CHASE_PITCH;
+  // raising only the camera anchor would steepen the view, whereas this
+  // tilts it up so the heli enters the top of the frame.
   const pitch0 = Math.atan2(CHASE_LOOK_Y - CHASE_CAM_Y, CHASE_DIST);
   const camPitch = pitch0 + (HELI_CHASE_PITCH - pitch0) * ce;
   const lookY = ce === 0 ? CHASE_LOOK_Y : camY + camDist * Math.tan(camPitch);
