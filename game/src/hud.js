@@ -9,7 +9,7 @@
 // Text is only rewritten when it changes, so a frame allocates nothing in the
 // steady state.
 
-import { CALOR_LABEL, missionView, shopMenu } from './missions.js';
+import { CALOR_LABEL, MISSIONS, missionView, shopMenu } from './missions.js';
 import { WORLD } from './city.js';
 
 /** Format a live mission timer as m:ss for the objective line. */
@@ -30,6 +30,7 @@ export function createHud() {
   const cardBody = el('cardBody'), cardGo = el('cardGo');
   const doneText = el('doneText'), donePay = el('donePay');
   const shopCard = el('shopCard'), shopBalance = el('shopBalance'), shopItems = el('shopItems');
+  const jobText = el('jobText'), saveLine = el('saveLine');
   const status = el('status');
   const cache = new Map();
   function set(elm, key, text) {
@@ -104,6 +105,19 @@ export function createHud() {
         set(cardTitle, 'cardTitle', G.card.title);
         set(cardBody, 'cardBody', G.card.body);
         set(cardGo, 'cardGo', G.card.go);
+      }
+      // Title screen: the job paragraph follows the mission the chain is
+      // on (identical to the shipped static copy for M1), and a restored
+      // save earns its continue/reset line in the controls block.
+      if (jobText) {
+        const def = MISSIONS[G.missionIdx];
+        setHtml(jobText, 'jobText', def ? def.job
+          : '<b>Cadeia completa:</b> o festival está salvo e a dívida paga. Porto Lume continua aberta — corridas de mantimentos e a garagem esperam por ti.');
+      }
+      if (saveLine) {
+        set(saveLine, 'saveLine', G.saveLoaded
+          ? `Progresso guardado: ${G.completed} trabalhos · ${G.money} lumes — ENTER continua · R recomeça do zero`
+          : '');
       }
       set(status, 'status', G.screen === 'title' ? 'Golden Hour. Prime Enter para começar.'
         : G.screen === 'busted' ? 'Detido pela PMPL.'

@@ -13,6 +13,7 @@ const HELD = {
 
 export function createInput(canvas) {
   const down = new Set();
+  const keyQueue = new Set();
   let interactQueued = false;
   let confirmQueued = false;
   let dragging = false;
@@ -22,6 +23,7 @@ export function createInput(canvas) {
   window.addEventListener('keydown', (event) => {
     if (event.code === 'KeyE' && !event.repeat) interactQueued = true;
     if ((event.code === 'Enter' || event.code === 'Space') && !event.repeat) confirmQueued = true;
+    if (!event.repeat) keyQueue.add(event.code);
     down.add(event.code);
     if (event.code.startsWith('Arrow') || event.code === 'Space') event.preventDefault();
   });
@@ -54,6 +56,8 @@ export function createInput(canvas) {
     throttle() { return (any(HELD.forward) ? 1 : 0) - (any(HELD.back) ? 1 : 0); },
     takeInteract() { const v = interactQueued; interactQueued = false; return v; },
     takeConfirm() { const v = confirmQueued; confirmQueued = false; return v; },
+    /** One-shot key latch for any code (e.g. the title screen's R reset): true once per physical press. */
+    takeKey(code) { const v = keyQueue.has(code); keyQueue.delete(code); return v; },
     takeOrbit() { const v = orbitDelta; orbitDelta = 0; return v; },
   };
 }

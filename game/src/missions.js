@@ -51,6 +51,7 @@
 
 import { WORLD, headingTo } from './city.js';
 import { createRng } from './random.js';
+import { storeSave } from './save.js';
 import { BOULEVARD_LOOP, SIDE_LOOP, NORTH_LOOP, SOUTH_LOOP, WEST_LOOP, OUTER_LOOP, DOCAS_LOOP } from './actors.js';
 
 export const STAGE = { GO: 1, DELIVER: 2, FREE: 4, ESCORT: 5, COLLECT: 6 };
@@ -179,6 +180,7 @@ function shopActivate(G) {
     G.upgrades.paint = (G.upgrades.paint + 1) % PAINTS.length;
     G.playerCar.body = [...PAINTS[G.upgrades.paint].body];
     say(G, 'Dona Pilar', `“${PAINTS[G.upgrades.paint].name} — fica-lhe bem, ao Vela. Saldo: ${G.money} lumes.”`);
+    storeSave(G);
     return;
   }
   if (sel === 1) {
@@ -188,6 +190,7 @@ function shopActivate(G) {
     G.money -= price;
     G.upgrades.tune = true;
     say(G, 'Dona Pilar', `“Motor afinado — o Vela respira melhor. Saldo: ${G.money} lumes.”`);
+    storeSave(G);
     return;
   }
   if (G.upgrades.bumper) { say(G, 'Dona Pilar', 'Já está instalado no Vela.'); return; }
@@ -196,6 +199,7 @@ function shopActivate(G) {
   G.money -= price;
   G.upgrades.bumper = true;
   say(G, 'Dona Pilar', `“Pára-choques reforçado — aguenta o que a avenida der. Saldo: ${G.money} lumes.”`);
+  storeSave(G);
 }
 
 /** Side-run destinations (item 2b), rotated by the completed-run counter. */
@@ -540,6 +544,41 @@ function completeMission(G) {
   // the PMPL was ever chasing.
   if (def.id === 'pacote') G.cooldownT = 5;
   say(G, def.doneWho, def.doneSay, 9);
+  storeSave(G);
+}
+
+/**
+ * Restore a browser save (save.js) into a fresh game state. Money, chain
+ * position and upgrades come back; the paint colour is applied to the Vela
+ * at once. A mission in progress is NOT restored mid-phase: the chain
+ * resumes at the current mission's accept point (stage FREE, marker on its
+ * giver) — except a fresh M1, which resumes at GO as it starts. A completed
+ * chain (missionIdx 4) resumes FREE with no marker.
+ */
+export function applySave(G, sv) {
+  G.money = sv.money;
+  G.missionIdx = Math.max(0, Math.min(MISSIONS.length, Math.floor(sv.missionIdx)));
+  G.completed = Math.max(0, Math.floor(sv.completed));
+  const up = sv.upgrades ?? {};
+  G.upgrades.paint = Math.max(0, Math.min(PAINTS.length - 1, Math.floor(up.paint ?? 0))) || 0;
+  G.upgrades.tune = !!up.tune;
+  G.upgrades.bumper = !!up.bumper;
+  G.playerCar.body = [...PAINTS[G.upgrades.paint].body];
+  setCargo(G, null);
+  G.timer = null;
+  G.collected = 0;
+  G.crates = [];
+  if (G.missionIdx >= MISSIONS.length) {
+    G.stage = STAGE.FREE;
+    G.markerX = null; G.markerZ = null;
+  } else if (G.missionIdx > 0 || G.completed > 0) {
+    G.stage = STAGE.FREE;
+    const gp = giverPoint(G.missionIdx);
+    G.markerX = gp.x; G.markerZ = gp.z;
+  } else {
+    G.stage = STAGE.GO;
+    G.markerX = WORLD.stall.x; G.markerZ = WORLD.stall.z;
+  }
 }
 
 /** A timed mission's clock ran out: no bust, no payout, no CALOR change — just the fail card and a retry at the giver. */
@@ -796,6 +835,7 @@ export function updateMission(G, dt) {
         G.sideDest = null;
         G.sideCd = SIDE_COOLDOWN;
         say(G, 'Sr. Baltazar', `“Mantimentos entregues — ${destName}. Cento e vinte lumes; o festival agradece.”`);
+        storeSave(G);
       }
     } else {
       const def = currentMission(G);

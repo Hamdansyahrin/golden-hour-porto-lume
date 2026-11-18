@@ -14,7 +14,8 @@
 import { createCity } from './city.js';
 import { createRenderer, MeshBuilder } from './engine.js';
 import { createInput } from './input.js';
-import { createGameState, updateMission, startMission, currentMission } from './missions.js';
+import { createGameState, updateMission, startMission, currentMission, applySave } from './missions.js';
+import { loadSave, setSaveEnabled, clearSave } from './save.js';
 import { updatePlayer, setCameraLook } from './player.js';
 import { paintCar, paintPerson, paintMarker, paintHeli, updateTraffic, updatePolice, updatePeds, updateHeli, collideCars } from './actors.js';
 import { createHud } from './hud.js';
@@ -149,6 +150,13 @@ function runShot(name) {
 }
 
 function runGame() {
+  // The browser save (P1-D, save.js) is a live-play-only feature: load and
+  // apply any stored chain state, THEN arm storing. The ?shot path never
+  // reaches this function, so staging can neither read nor write a save.
+  const sv = loadSave();
+  if (sv) applySave(G, sv);
+  G.saveLoaded = !!sv;
+  setSaveEnabled(true);
   const input = createInput(canvas);
   let accumulator = 0;
   let last = performance.now();
@@ -173,6 +181,12 @@ function runGame() {
       }
     }
     if (G.screen === 'title') {
+      // R on the title screen (and only there) wipes a stored save and
+      // restarts from a fresh chain.
+      if (G.saveLoaded && input.takeKey('KeyR')) {
+        clearSave();
+        location.reload();
+      }
       // Title backdrop (P1-C framing): the same slow drift over the boulevard,
       // but the look point now sits on the Farol rise to the west-northwest, so
       // the card floats over the avenue running toward the lighthouse and the
