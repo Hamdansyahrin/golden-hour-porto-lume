@@ -402,8 +402,14 @@ export function createCity() {
   colliders.push({ minX: C.x - 6.4, maxX: C.x - 5.6, minZ: C.z - 0.4, maxZ: C.z + 0.4 });
   colliders.push({ minX: C.x + 5.6, maxX: C.x + 6.4, minZ: C.z - 0.4, maxZ: C.z + 0.4 });
   // Dock edge beam and the sea beyond it (a flat teal plane, scenery only).
+  // P1-C grade: the water warms a step toward the sun, and a few fixed emissive
+  // glint strips lie on it — the engine has no specular term, so these pale-gold
+  // dashes are the cheap sun path on the harbour, placed once, always the same.
   b.box(-22, 0.5, 67.6, 76, 1.0, 0.8, 0, COL.rock);
-  b.groundQuad(-125, 68, 125, 86, -0.35, [0.16, 0.45, 0.5]);
+  b.groundQuad(-125, 68, 125, 86, -0.35, [0.15, 0.47, 0.52]);
+  for (const [gx, gz, gw] of [[-46, 71.5, 15], [-18, 74.5, 10], [8, 72, 18], [38, 76, 12], [-64, 78, 12], [62, 73, 14]]) {
+    b.groundQuad(gx - gw / 2, gz, gx + gw / 2, gz + 0.55, -0.30, [1.0, 0.8, 0.48], { emissive: true });
+  }
 
   // ---- the dry canal at the east edge: a sandy bed below street level, crossed by
   // the boulevard and the south road on stone abutments. Scenery only.
@@ -418,8 +424,12 @@ export function createCity() {
     colliders.push({ minX: WORLD.canal.xMin - 2.2, maxX: WORLD.canal.xMin + 0.2, minZ: az - 1.5, maxZ: az + 1.5 });
   }
 
-  // Sea hint at the far west: a teal plane beyond the apron.
-  b.groundQuad(-220, -90, -118, 80, -0.4, [0.16, 0.45, 0.5]);
+  // Sea hint at the far west: a teal plane beyond the apron, with the same
+  // fixed glint strips running along it (long in z here, toward the Farol).
+  b.groundQuad(-220, -90, -118, 80, -0.4, [0.15, 0.47, 0.52]);
+  for (const [gx, gz, gl] of [[-150, -30, 16], [-168, 4, 11], [-138, 30, 19], [-185, -52, 13]]) {
+    b.groundQuad(gx, gz - gl / 2, gx + 0.55, gz + gl / 2, -0.35, [1.0, 0.8, 0.48], { emissive: true });
+  }
 
   return { builder: b, colliders };
 }

@@ -172,12 +172,15 @@ out vec4 oCol;
 void main(){
   vec3 n = normalize(vNor);
   float dl = max(dot(n, uSun), 0.0);
-  float light = 0.42 + 0.62 * dl;
-  vec3 warm = vCol * vec3(1.06, 0.97, 0.86);
+  // Golden-hour grade (P1-C): a slightly higher warm ambient floor and a gentler
+  // sun term, so shadowed faces stay peach-lit instead of going brown-grey, and
+  // sunlit faces roll off instead of clipping toward white.
+  float light = 0.47 + 0.57 * dl;
+  vec3 warm = vCol * vec3(1.09, 0.96, 0.81);
   vec3 lit = warm * light;
-  vec3 col = mix(lit, vCol * 1.15, vEmi);
+  vec3 col = mix(lit, vCol * 1.18, vEmi);
   float f = smoothstep(uFogNear, uFogFar, vDist);
-  col = mix(col, uFog, f * 0.82);
+  col = mix(col, uFog, f * 0.85);
   oCol = vec4(col, 1.0);
 }`;
 
@@ -196,9 +199,9 @@ void main(){
   vec3 col = mix(uLow, uMid, smoothstep(0.0, 0.52, h));
   col = mix(col, uTop, smoothstep(0.5, 1.0, h));
   float sunAmt = pow(max(dot(normalize(vec3(vP.x * 1.4, vP.y + 0.12, 0.55)), normalize(vec3(uSunDir, 0.55))), 0.0), 18.0);
-  col += vec3(1.0, 0.62, 0.28) * sunAmt * 0.85;
+  col += vec3(1.0, 0.60, 0.26) * sunAmt * 0.98;
   float disc = smoothstep(0.055, 0.045, length(vec2(vP.x * 1.4, vP.y + 0.12) - uSunDir));
-  col += vec3(1.0, 0.78, 0.45) * disc * 0.9;
+  col += vec3(1.0, 0.80, 0.46) * disc * 0.95;
   oCol = vec4(col, 1.0);
 }`;
 
@@ -220,9 +223,14 @@ function program(gl, vs, fs) {
   return p;
 }
 
-export const SUN_DIR = (() => { const v = [-0.55, 0.62, -0.42]; const l = Math.hypot(...v); return [v[0] / l, v[1] / l, v[2] / l]; })();
-export const FOG_COLOUR = [0.98, 0.62, 0.36];
-export const SKY = { top: [0.36, 0.42, 0.72], mid: [0.99, 0.62, 0.34], low: [1.0, 0.8, 0.52] };
+// The grade's fixed constants (P1-C): the sun sits lower and further west than
+// the P0 key ([-0.55, 0.62, -0.42]) — a late-afternoon rake across the harbour
+// instead of a near-noon top light — the haze is a paler peach, and the sky runs
+// from a deeper Mediterranean blue at the zenith through apricot to a pale-gold
+// horizon band. All three are plain constants: same light on every run.
+export const SUN_DIR = (() => { const v = [-0.62, 0.46, -0.38]; const l = Math.hypot(...v); return [v[0] / l, v[1] / l, v[2] / l]; })();
+export const FOG_COLOUR = [1.0, 0.67, 0.39];
+export const SKY = { top: [0.30, 0.40, 0.71], mid: [1.0, 0.60, 0.30], low: [1.0, 0.83, 0.55] };
 
 export function createRenderer(canvas) {
   const gl = canvas.getContext('webgl2', { antialias: true, depth: true });
@@ -283,7 +291,7 @@ export function createRenderer(canvas) {
       gl.disable(gl.DEPTH_TEST);
       gl.useProgram(skyProg);
       gl.uniform3fv(sTop, SKY.top); gl.uniform3fv(sMid, SKY.mid); gl.uniform3fv(sLow, SKY.low);
-      gl.uniform2f(sSun, -0.52, 0.06);
+      gl.uniform2f(sSun, -0.58, 0.02); // the disc sits with the lowered western sun (SUN_DIR)
       gl.bindVertexArray(skyVao);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       // World.
@@ -297,8 +305,11 @@ export function createRenderer(canvas) {
       gl.uniformMatrix4fv(uMVP, false, multiply(proj, view));
       gl.uniform3fv(uSun, SUN_DIR);
       gl.uniform3fv(uFog, FOG_COLOUR);
-      gl.uniform1f(uFogNear, 55);
-      gl.uniform1f(uFogFar, 210);
+      // Haze starts a touch sooner and closes a touch earlier than P0's 55/210,
+      // so the far ends of the boulevard melt into the peach fog (depth cueing
+      // that reads as late sun) while the play space itself stays clear.
+      gl.uniform1f(uFogNear, 48);
+      gl.uniform1f(uFogFar, 198);
       // Static geometry lives in its own buffer and VAO; dynamic actors in the other.
       gl.bindVertexArray(this._svao);
       gl.drawArrays(gl.TRIANGLES, 0, staticCount);

@@ -657,22 +657,38 @@ export function paintHeli(b, heli) {
     const st = at(s, -0.85, 0.9);
     b.box(st[0], st[1], st[2], 0.1, 0.35, 0.1, h, DARK);
   }
-  // Spotlight cone + ground disc while on station.
+  // Spotlight cone + ground pool while on station (P1-C grade pass): the four
+  // sparse panels stay — that sparseness is what reads as translucency — but
+  // each panel is now painted vertex by vertex with a brightness falloff,
+  // bright at the lamp and fading to about half by the ground, so the beam
+  // reads as light travelling and thinning instead of a flat sail. The pool
+  // gains a wide, dim halo ring under the bright core disc: a soft edge
+  // instead of a hard circle stamped on the road.
   if (heli.active) {
     const apex = [x, y - 0.8, z];
     const seg = 16, R = 3.1;
+    const apexCol = [0.68, 0.62, 0.45], baseCol = [0.36, 0.32, 0.22];
     for (let i = 0; i < seg; i += 4) { // sparse panels: 4 of 16, a beam not a sail
       const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
       const p0 = [heli.spotX + Math.cos(a0) * R, 0.15, heli.spotZ + Math.sin(a0) * R];
       const p1 = [heli.spotX + Math.cos(a1) * R, 0.15, heli.spotZ + Math.sin(a1) * R];
-      b.tri(apex, p0, p1, [0, 1, 0], [0.55, 0.5, 0.36], 1);
+      b.vertex(apex[0], apex[1], apex[2], 0, 1, 0, apexCol[0], apexCol[1], apexCol[2], 1);
+      b.vertex(p0[0], p0[1], p0[2], 0, 1, 0, baseCol[0], baseCol[1], baseCol[2], 1);
+      b.vertex(p1[0], p1[1], p1[2], 0, 1, 0, baseCol[0], baseCol[1], baseCol[2], 1);
+    }
+    for (let i = 0; i < 10; i++) {
+      const a0 = (i / 10) * Math.PI * 2, a1 = ((i + 1) / 10) * Math.PI * 2;
+      b.tri([heli.spotX, 0.055, heli.spotZ],
+        [heli.spotX + Math.cos(a0) * 4.3, 0.055, heli.spotZ + Math.sin(a0) * 4.3],
+        [heli.spotX + Math.cos(a1) * 4.3, 0.055, heli.spotZ + Math.sin(a1) * 4.3],
+        [0, 1, 0], [0.50, 0.44, 0.30], 1);
     }
     for (let i = 0; i < 10; i++) {
       const a0 = (i / 10) * Math.PI * 2, a1 = ((i + 1) / 10) * Math.PI * 2;
       b.tri([heli.spotX, 0.07, heli.spotZ],
         [heli.spotX + Math.cos(a0) * 3.0, 0.07, heli.spotZ + Math.sin(a0) * 3.0],
         [heli.spotX + Math.cos(a1) * 3.0, 0.07, heli.spotZ + Math.sin(a1) * 3.0],
-        [0, 1, 0], [0.85, 0.77, 0.52], 1);
+        [0, 1, 0], [0.88, 0.79, 0.53], 1);
     }
   }
 }
