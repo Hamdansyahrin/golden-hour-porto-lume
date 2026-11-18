@@ -454,3 +454,39 @@ export function collide(colliders, x, z, radius) {
 export function clampWorld(x, z) {
   return [Math.max(-116, Math.min(116, x)), Math.max(-74, Math.min(66, z))];
 }
+
+/**
+ * Line-of-sight blockage (P1-B): is the 2D segment (x1, z1) → (x2, z2) cut by any
+ * building-sized collider? Slab test per AABB against the segment's [0, 1] range.
+ * Only colliders at least 2.5 m in both axes count as occluders — that is the
+ * buildings, the garage, the warehouses and the container stacks; palms, lamps,
+ * stalls and posts are too thin to hide a man or a car and are skipped. The first
+ * and last 1.2 m of the segment are ignored, so standing flush against a wall
+ * never blocks your own view (or a unit's view of a player at its bumper).
+ */
+export function losBlocked(colliders, x1, z1, x2, z2) {
+  const dx = x2 - x1, dz = z2 - z1;
+  const len = Math.hypot(dx, dz);
+  if (len < 0.001) return false;
+  const tLo = 1.2 / len, tHi = 1 - 1.2 / len;
+  for (const c of colliders) {
+    if (c.maxX - c.minX < 2.5 || c.maxZ - c.minZ < 2.5) continue;
+    let tmin = 0, tmax = 1;
+    if (Math.abs(dx) < 1e-9) { if (x1 < c.minX || x1 > c.maxX) continue; }
+    else {
+      let ta = (c.minX - x1) / dx, tb = (c.maxX - x1) / dx;
+      if (ta > tb) { const s = ta; ta = tb; tb = s; }
+      tmin = Math.max(tmin, ta); tmax = Math.min(tmax, tb);
+      if (tmin > tmax) continue;
+    }
+    if (Math.abs(dz) < 1e-9) { if (z1 < c.minZ || z1 > c.maxZ) continue; }
+    else {
+      let ta = (c.minZ - z1) / dz, tb = (c.maxZ - z1) / dz;
+      if (ta > tb) { const s = ta; ta = tb; tb = s; }
+      tmin = Math.max(tmin, ta); tmax = Math.min(tmax, tb);
+      if (tmin > tmax) continue;
+    }
+    if (tmax >= tLo && tmin <= tHi) return true;
+  }
+  return false;
+}

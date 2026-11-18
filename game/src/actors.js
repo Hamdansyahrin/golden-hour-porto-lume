@@ -3,7 +3,7 @@
 // car and the sidewalk pedestrians behave. Rui himself is controlled from player.js; this
 // module only paints him.
 
-import { WORLD, collide, clampWorld, forwardOf, headingTo, wrapAngle } from './city.js';
+import { WORLD, collide, clampWorld, forwardOf, headingTo, wrapAngle, losBlocked } from './city.js';
 
 const DARK = [0.1, 0.1, 0.12];
 const GLASS = [0.13, 0.2, 0.3];
@@ -234,12 +234,54 @@ export function collideCars(G, dt) {
 
 // ------------------------------------------------------------------ police
 
+/** How far a unit can see, and how often each unit re-checks its line-of-sight. */
+export const LOS_RANGE = 60;
+export const LOS_INTERVAL = 0.21;
+
+/**
+ * One real line-of-sight test: Rui (on foot or in the Vela — the target point is
+ * the same) is visible from the unit if he is inside LOS_RANGE and no building
+ * collider cuts the segment between them (city.js losBlocked).
+ */
+export function checkLOS(G, unit, tx, tz) {
+  const d = Math.hypot(tx - unit.x, tz - unit.z);
+  if (d > LOS_RANGE) return false;
+  return !losBlocked(G.colliders, unit.x, unit.z, tx, tz);
+}
+
+/**
+ * Throttled LOS bookkeeping for the whole fleet. Each unit re-tests its sight
+ * line every LOS_INTERVAL seconds, staggered by unit index (losT was seeded
+ * i * 0.06 apart), so the four segment sweeps never land on the same frame.
+ * Between tests the unit keeps its last verdict — that staleness is deliberate:
+ * it is what makes breaking away around a corner feel fair. A fresh sighting
+ * pins lastKnown to Rui's position and zeroes the unseen clock; losing sight
+ * starts it, and the tactics below drive on lastKnown from there.
+ */
+export function refreshLOS(G, dt) {
+  const t = G.player.mode === 'car' ? G.playerCar : G.player;
+  for (const u of G.policeUnits) {
+    u.lastKnownAge += dt;
+    if (!u.hasLOS) u.unseenSec += dt;
+    u.losT -= dt;
+    if (u.losT > 0) continue;
+    u.losT = LOS_INTERVAL;
+    if (!u.active) { u.hasLOS = false; continue; }
+    u.hasLOS = checkLOS(G, u, t.x, t.z);
+    if (u.hasLOS) {
+      u.lastKnownX = t.x; u.lastKnownZ = t.z;
+      u.lastKnownAge = 0; u.unseenSec = 0;
+    }
+  }
+}
+
 /**
  * The PMPL patrol car. Wanted 0: it cruises the boulevard loop (or waits at its park spot
  * before the mission starts). Wanted > 0: it steers at the player and keeps the pressure
  * on — fast on straights, patient in turns, never quite teleporting onto the player.
  */
 export function updatePolice(G, dt) {
+  refreshLOS(G, dt);
   const cop = G.police;
   if (G.cooldownT > 0) {
     // Standing down after a delivery: roll back to the park spot and wait.
