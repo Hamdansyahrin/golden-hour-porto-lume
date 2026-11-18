@@ -215,7 +215,14 @@ export function updateMission(G, dt) {
 
   // District name for the HUD corner.
   const nearFarol = Math.hypot(p.x - WORLD.farol.x, p.z - WORLD.farol.z) < 26;
+  const nearClock = Math.hypot(p.x - WORLD.clockTower.x, p.z - WORLD.clockTower.z) < 20;
   if (nearFarol) G.district = 'FAROL DE PORTO LUME';
+  else if (nearClock) G.district = 'PRAÇA DO RELÓGIO';
+  else if (p.z > 44) G.district = 'DOCAS · PORTO LUME';
+  else if (Math.abs(p.z - WORLD.northRoad.z) < 9) G.district = 'RUA DO RELÓGIO';
+  else if (Math.abs(p.z - WORLD.southRoad.z) < 9) G.district = 'RUA DAS DOCAS';
+  else if (Math.abs(p.x - WORLD.westStreet.x) < 9) G.district = 'RUA DO FAROL';
+  else if (Math.abs(p.x - WORLD.eastStreet.x) < 9) G.district = 'AVENIDA LESTE';
   else if (Math.abs(p.x - WORLD.sideStreet.x) < 9) G.district = 'RUA DAS FLORES';
   else G.district = 'AVENIDA DO FAROL · PORTO LUME';
 }

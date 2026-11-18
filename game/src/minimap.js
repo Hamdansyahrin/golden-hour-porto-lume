@@ -1,7 +1,11 @@
-// The circular minimap: a canvas dial, north up, that projects Porto Lume's two streets,
-// the Farol, and a blip for every actor — Rui (white arrow), the PMPL patrol (flashing
-// blue/red), traffic (pale dots), pedestrians (tiny sand dots) and the gold mission
-// target. A search ring pulses around Rui while the CALOR is up and he is out of sight.
+// The circular minimap: a canvas dial, north up, that projects Porto Lume's road
+// network (the boulevard, Rua das Flores and the P1-A grid around them), the Farol,
+// the clock tower and the dry canal, plus a blip for every actor — Rui (white arrow),
+// the PMPL patrol (flashing blue/red), traffic (pale dots), pedestrians (tiny sand
+// dots) and the gold mission target. A search ring pulses around Rui while the CALOR
+// is up and he is out of sight.
+
+import { ROAD_BANDS, WORLD } from './city.js';
 
 const RANGE = 105; // world metres shown from centre to rim
 
@@ -28,14 +32,19 @@ export function createMinimap(canvas) {
       ctx.beginPath();
       ctx.arc(C, C, C - 2, 0, Math.PI * 2);
       ctx.clip();
-      // Ground and streets.
+      // Ground and streets: every road band in the network.
       ctx.fillStyle = '#31483a';
       ctx.fillRect(0, 0, S, S);
       ctx.fillStyle = '#3d3a40';
-      ctx.fillRect(0, pz(7, cz), S, 14 * scale); // boulevard band
-      ctx.fillRect(px(15.5, cx), 0, 9 * scale, S); // side street band
+      for (const band of ROAD_BANDS.h) ctx.fillRect(0, pz(band.z - band.half, cz), S, band.half * 2 * scale);
+      for (const band of ROAD_BANDS.v) ctx.fillRect(px(band.x - band.half, cx), 0, band.half * 2 * scale, S);
+      // The dry canal strip at the east edge and the harbour water at the south.
+      ctx.fillStyle = '#8a6f4d';
+      ctx.fillRect(px(WORLD.canal.xMin, cx), 0, (WORLD.canal.xMax - WORLD.canal.xMin) * scale, S);
       ctx.fillStyle = '#57707e';
-      dot(px(-80, cx), pz(-34, cz), 4, '#57707e');
+      ctx.fillRect(0, pz(68, cz), S, S - pz(68, cz));
+      dot(px(WORLD.farol.x, cx), pz(WORLD.farol.z, cz), 4, '#e8e0cc');
+      dot(px(WORLD.clockTower.x, cx), pz(WORLD.clockTower.z, cz), 3, '#ffbe3c');
       // Search ring while wanted and unseen.
       if (G.wanted > 0 && !G.seen && G.cooldownT <= 0) {
         ctx.strokeStyle = 'rgba(255,90,60,0.75)';
