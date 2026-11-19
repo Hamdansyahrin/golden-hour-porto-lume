@@ -1,0 +1,20 @@
+[
+  {
+    "name": "1-cover.jpg",
+    "query": "?shot=heli&seed=1",
+    "scene": "heli",
+    "caption": "Five stars, ÁGUIA-1's spotlight, the roadblock ahead and the Farol closing the frame."
+  },
+  {
+    "name": "2-foot.jpg",
+    "query": "?shot=festival&seed=1",
+    "scene": "festival",
+    "caption": "Rui in front of the stall row on Rua das Flores at golden hour, the crowd around the bancas, bunting overhead, the M1 objective live."
+  },
+  {
+    "name": "3-deliver.jpg",
+    "query": "?shot=deliver&seed=1",
+    "scene": "deliver",
+    "caption": "The drop at Dona Pilar's garage, job complete."
+  }
+]
